@@ -1,6 +1,9 @@
 from django.db import models, transaction
 from django.utils import timezone
 
+from apps.audit.services import AuditService
+from apps.notifications.services import NotificationService
+
 from .models import (
     CheckoutRecord,
     Schedule,
@@ -63,7 +66,13 @@ class ScheduleStatusService:
                 changed_by=user,
                 notes=notes,
             )
-            return locked
+
+        AuditService.log_schedule_action(
+            user=user, action="confirm", schedule=locked,
+            description=f'Confirmed schedule "{locked.title}"',
+        )
+        NotificationService.on_schedule_status_change(locked, "confirmed", user)
+        return locked
 
     @classmethod
     def begin(cls, schedule: Schedule, user, *, notes: str = "") -> Schedule:
@@ -84,7 +93,13 @@ class ScheduleStatusService:
                 changed_by=user,
                 notes=notes or "Auto-transitioned on first equipment checkout",
             )
-            return locked
+
+        AuditService.log_schedule_action(
+            user=user, action="begin", schedule=locked,
+            description=f'Schedule "{locked.title}" is now in progress',
+        )
+        NotificationService.on_schedule_status_change(locked, "started", user)
+        return locked
 
     @classmethod
     def complete(cls, schedule: Schedule, user, *, notes: str = "") -> Schedule:
@@ -118,7 +133,13 @@ class ScheduleStatusService:
                 changed_by=user,
                 notes=notes,
             )
-            return locked
+
+        AuditService.log_schedule_action(
+            user=user, action="complete", schedule=locked,
+            description=f'Completed schedule "{locked.title}"',
+        )
+        NotificationService.on_schedule_status_change(locked, "completed", user)
+        return locked
 
     @classmethod
     def cancel(cls, schedule: Schedule, user, *, reason: str = "", force: bool = False, notes: str = "") -> Schedule:
@@ -160,7 +181,13 @@ class ScheduleStatusService:
                 changed_by=user,
                 notes=notes or reason,
             )
-            return locked
+
+        AuditService.log_schedule_action(
+            user=user, action="cancel", schedule=locked,
+            description=f'Cancelled schedule "{locked.title}"',
+        )
+        NotificationService.on_schedule_status_change(locked, "cancelled", user)
+        return locked
 
     @classmethod
     def reopen(cls, schedule: Schedule, user, *, notes: str = "") -> Schedule:
@@ -195,7 +222,12 @@ class ScheduleStatusService:
                 changed_by=user,
                 notes=notes or "Reopened from cancelled",
             )
-            return locked
+
+        AuditService.log_schedule_action(
+            user=user, action="reopen", schedule=locked,
+            description=f'Reopened schedule "{locked.title}"',
+        )
+        return locked
 
     @classmethod
     def _validate_transition(cls, schedule: Schedule, target_status: str):

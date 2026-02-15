@@ -1,6 +1,9 @@
 from django.db import transaction as db_transaction
 from django.utils import timezone
 
+from apps.audit.services import AuditService
+from apps.notifications.services import NotificationService
+
 from .models import TransactionLineItem, WarehouseTransaction
 
 
@@ -60,7 +63,15 @@ class CheckOutService:
                     txn, line_items, performed_by, schedule, rental_agreement
                 )
 
-            return txn
+        # Post-transaction hooks (outside atomic to avoid notifying on rollback)
+        AuditService.log_warehouse_action(
+            user=performed_by, action="check_out", transaction=txn,
+            description=f"Check-out created ({txn.get_status_display()})",
+        )
+        if requires_confirmation:
+            NotificationService.on_warehouse_pending(txn, performed_by)
+
+        return txn
 
 
 class CheckInService:
@@ -120,7 +131,14 @@ class CheckInService:
                     txn, line_items, performed_by, schedule, rental_agreement
                 )
 
-            return txn
+        AuditService.log_warehouse_action(
+            user=performed_by, action="check_in", transaction=txn,
+            description=f"Check-in created ({txn.get_status_display()})",
+        )
+        if requires_confirmation:
+            NotificationService.on_warehouse_pending(txn, performed_by)
+
+        return txn
 
 
 class ConfirmationService:
@@ -198,7 +216,13 @@ class ConfirmationService:
                     txn.rental_agreement,
                 )
 
-            return txn
+        AuditService.log_warehouse_action(
+            user=confirmed_by, action="confirm_transaction", transaction=txn,
+            description=f"Confirmed {txn.get_transaction_type_display().lower()}",
+        )
+        NotificationService.on_warehouse_confirmed(txn, confirmed_by)
+
+        return txn
 
     @staticmethod
     def cancel(transaction, cancelled_by, notes=""):
@@ -234,7 +258,13 @@ class ConfirmationService:
                 )
             txn.save(update_fields=["status", "notes", "updated_at"])
 
-            return txn
+        AuditService.log_warehouse_action(
+            user=cancelled_by, action="cancel_transaction", transaction=txn,
+            description=f"Cancelled {txn.get_transaction_type_display().lower()}",
+        )
+        NotificationService.on_warehouse_cancelled(txn, cancelled_by)
+
+        return txn
 
 
 # ---------------------------------------------------------------------------

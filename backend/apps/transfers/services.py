@@ -1,6 +1,9 @@
 from django.db import transaction
 from django.utils import timezone
 
+from apps.audit.services import AuditService
+from apps.notifications.services import NotificationService
+
 
 class InvalidTransferError(Exception):
     pass
@@ -90,6 +93,10 @@ class TransferService:
                     notes=item_data.get("notes", ""),
                 )
 
+        AuditService.log_transfer_action(
+            user=performed_by, action="create", transfer=transfer,
+            description=f'Created transfer from "{from_schedule.title}" to "{to_schedule.title}"',
+        )
         return transfer
 
     @staticmethod
@@ -223,6 +230,11 @@ class TransferService:
                 ]
             )
 
+        AuditService.log_transfer_action(
+            user=performed_by, action="execute", transfer=transfer,
+            description=f'Executed transfer from "{transfer.from_schedule.title}" to "{transfer.to_schedule.title}"',
+        )
+        NotificationService.on_transfer_executed(transfer, performed_by)
         return transfer
 
     @staticmethod
@@ -279,4 +291,8 @@ class TransferService:
                 transfer.notes = notes
             transfer.save(update_fields=["status", "notes", "updated_at"])
 
+        AuditService.log_transfer_action(
+            user=cancelled_by, action="cancel", transfer=transfer,
+            description=f"Cancelled transfer",
+        )
         return transfer

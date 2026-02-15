@@ -22,6 +22,8 @@ import WarehouseTransactionsPage from "@/features/warehouse/WarehouseTransaction
 import WarehouseTransactionDetailPage from "@/features/warehouse/WarehouseTransactionDetailPage";
 import PendingConfirmationsPage from "@/features/warehouse/PendingConfirmationsPage";
 import TransferListPage from "@/features/transfers/TransferListPage";
+import NotificationListPage from "@/features/notifications/NotificationListPage";
+import AuditLogPage from "@/features/audit/AuditLogPage";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -69,6 +71,10 @@ export default function App() {
             <Route path="warehouse/transactions/:uuid" element={<WarehouseTransactionDetailPage />} />
             {/* Transfers */}
             <Route path="transfers" element={<TransferListPage />} />
+            {/* Notifications */}
+            <Route path="notifications" element={<NotificationListPage />} />
+            {/* Admin */}
+            <Route path="admin/audit-logs" element={<AuditLogPage />} />
           </Route>
         </Routes>
       </BrowserRouter>

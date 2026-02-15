@@ -5,6 +5,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAuthStore } from "@/stores/auth-store";
 import { useUIStore } from "@/stores/ui-store";
 import { useLogout } from "@/hooks/use-auth";
+import NotificationBell from "./NotificationBell";
 
 export default function TopBar() {
   const user = useAuthStore((s) => s.user);
@@ -46,6 +47,7 @@ export default function TopBar() {
 
       {/* User area */}
       <div className="flex items-center gap-3">
+        <NotificationBell />
         <div className="hidden text-right text-sm sm:block">
           <p className="font-medium leading-none text-foreground">
             {displayName}

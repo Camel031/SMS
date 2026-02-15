@@ -3,6 +3,9 @@ import logging
 from django.db import transaction
 from django.utils import timezone
 
+from apps.audit.services import AuditService
+from apps.notifications.services import NotificationService
+
 logger = logging.getLogger(__name__)
 
 
@@ -44,7 +47,12 @@ class RentalService:
             locked = RentalAgreement.objects.select_for_update().get(pk=agreement.pk)
             locked.status = RentalAgreement.Status.ACTIVE
             locked.save(update_fields=["status", "updated_at"])
-            return locked
+
+        AuditService.log_rental_action(
+            user=user, action="activate", agreement=locked,
+        )
+        NotificationService.on_rental_status_change(locked, "activated", user)
+        return locked
 
     # ------------------------------------------------------------------
     # receive
@@ -324,7 +332,12 @@ class RentalService:
             locked = RentalAgreement.objects.select_for_update().get(pk=agreement.pk)
             locked.end_date = new_end_date
             locked.save(update_fields=["end_date", "updated_at"])
-            return locked
+
+        AuditService.log_rental_action(
+            user=user, action="extend", agreement=locked,
+            description=f"Extended agreement {locked.agreement_number} to {new_end_date}",
+        )
+        return locked
 
     # ------------------------------------------------------------------
     # cancel
@@ -394,4 +407,9 @@ class RentalService:
 
             locked.status = RentalAgreement.Status.CANCELLED
             locked.save(update_fields=["status", "updated_at"])
-            return locked
+
+        AuditService.log_rental_action(
+            user=user, action="cancel", agreement=locked,
+        )
+        NotificationService.on_rental_status_change(locked, "cancelled", user)
+        return locked
