@@ -10,6 +10,8 @@ import {
   ChevronLeft,
   BarChart3,
   Settings2,
+  FileText,
+  ArrowLeftRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePermission } from "@/hooks/use-auth";
@@ -33,7 +35,9 @@ export default function Sidebar() {
     { label: "Equipment", to: "/equipment", icon: Package },
     { label: "Inventory", to: "/inventory", icon: BarChart3 },
     { label: "Schedules", to: "/schedules", icon: CalendarRange },
+    { label: "Rentals", to: "/rentals", icon: FileText },
     { label: "Warehouse", to: "/warehouse", icon: WarehouseIcon },
+    { label: "Transfers", to: "/transfers", icon: ArrowLeftRight },
     { label: "Notifications", to: "/notifications", icon: Bell },
   ];
 

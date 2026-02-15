@@ -15,6 +15,13 @@ import InventoryPage from "@/features/equipment/InventoryPage";
 import ScheduleListPage from "@/features/schedules/ScheduleListPage";
 import ScheduleFormPage from "@/features/schedules/ScheduleFormPage";
 import ScheduleDetailPage from "@/features/schedules/ScheduleDetailPage";
+import RentalListPage from "@/features/rentals/RentalListPage";
+import RentalFormPage from "@/features/rentals/RentalFormPage";
+import RentalDetailPage from "@/features/rentals/RentalDetailPage";
+import WarehouseTransactionsPage from "@/features/warehouse/WarehouseTransactionsPage";
+import WarehouseTransactionDetailPage from "@/features/warehouse/WarehouseTransactionDetailPage";
+import PendingConfirmationsPage from "@/features/warehouse/PendingConfirmationsPage";
+import TransferListPage from "@/features/transfers/TransferListPage";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -51,6 +58,17 @@ export default function App() {
             <Route path="schedules/new" element={<ScheduleFormPage />} />
             <Route path="schedules/:uuid" element={<ScheduleDetailPage />} />
             <Route path="schedules/:uuid/edit" element={<ScheduleFormPage />} />
+            {/* Rentals */}
+            <Route path="rentals" element={<RentalListPage />} />
+            <Route path="rentals/new" element={<RentalFormPage />} />
+            <Route path="rentals/:uuid" element={<RentalDetailPage />} />
+            <Route path="rentals/:uuid/edit" element={<RentalFormPage />} />
+            {/* Warehouse */}
+            <Route path="warehouse" element={<WarehouseTransactionsPage />} />
+            <Route path="warehouse/pending" element={<PendingConfirmationsPage />} />
+            <Route path="warehouse/transactions/:uuid" element={<WarehouseTransactionDetailPage />} />
+            {/* Transfers */}
+            <Route path="transfers" element={<TransferListPage />} />
           </Route>
         </Routes>
       </BrowserRouter>
