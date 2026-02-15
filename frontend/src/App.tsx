@@ -4,6 +4,14 @@ import { Toaster } from "sonner";
 import AppShell from "@/components/layout/AppShell";
 import LoginPage from "@/features/auth/LoginPage";
 import DashboardPage from "@/features/dashboard/DashboardPage";
+import EquipmentPage from "@/features/equipment/EquipmentPage";
+import EquipmentModelDetailPage from "@/features/equipment/EquipmentModelDetailPage";
+import EquipmentItemDetailPage from "@/features/equipment/EquipmentItemDetailPage";
+import EquipmentModelFormPage from "@/features/equipment/EquipmentModelFormPage";
+import EquipmentItemFormPage from "@/features/equipment/EquipmentItemFormPage";
+import CategoriesPage from "@/features/equipment/CategoriesPage";
+import CustomFieldsPage from "@/features/equipment/CustomFieldsPage";
+import InventoryPage from "@/features/equipment/InventoryPage";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -23,7 +31,18 @@ export default function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route element={<AppShell />}>
             <Route index element={<DashboardPage />} />
-            {/* Phase 2+ routes will be added here */}
+            {/* Equipment */}
+            <Route path="equipment" element={<EquipmentPage />} />
+            <Route path="equipment/new" element={<EquipmentModelFormPage />} />
+            <Route path="equipment/categories" element={<CategoriesPage />} />
+            <Route path="equipment/custom-fields" element={<CustomFieldsPage />} />
+            <Route path="equipment/models/:uuid" element={<EquipmentModelDetailPage />} />
+            <Route path="equipment/models/:uuid/edit" element={<EquipmentModelFormPage />} />
+            <Route path="equipment/items/new" element={<EquipmentItemFormPage />} />
+            <Route path="equipment/items/:uuid" element={<EquipmentItemDetailPage />} />
+            <Route path="equipment/items/:uuid/edit" element={<EquipmentItemFormPage />} />
+            {/* Inventory */}
+            <Route path="inventory" element={<InventoryPage />} />
           </Route>
         </Routes>
       </BrowserRouter>

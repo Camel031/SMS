@@ -8,6 +8,8 @@ import {
   Users,
   ScrollText,
   ChevronLeft,
+  BarChart3,
+  Settings2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePermission } from "@/hooks/use-auth";
@@ -29,12 +31,19 @@ export default function Sidebar() {
   const mainNav: NavItem[] = [
     { label: "Dashboard", to: "/", icon: LayoutDashboard },
     { label: "Equipment", to: "/equipment", icon: Package },
+    { label: "Inventory", to: "/inventory", icon: BarChart3 },
     { label: "Schedules", to: "/schedules", icon: CalendarRange },
     { label: "Warehouse", to: "/warehouse", icon: WarehouseIcon },
     { label: "Notifications", to: "/notifications", icon: Bell },
   ];
 
   const adminNav: NavItem[] = [
+    {
+      label: "Custom Fields",
+      to: "/equipment/custom-fields",
+      icon: Settings2,
+      permission: perms.canManageEquipment,
+    },
     {
       label: "Users",
       to: "/admin/users",
