@@ -12,6 +12,9 @@ import EquipmentItemFormPage from "@/features/equipment/EquipmentItemFormPage";
 import CategoriesPage from "@/features/equipment/CategoriesPage";
 import CustomFieldsPage from "@/features/equipment/CustomFieldsPage";
 import InventoryPage from "@/features/equipment/InventoryPage";
+import ScheduleListPage from "@/features/schedules/ScheduleListPage";
+import ScheduleFormPage from "@/features/schedules/ScheduleFormPage";
+import ScheduleDetailPage from "@/features/schedules/ScheduleDetailPage";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -43,6 +46,11 @@ export default function App() {
             <Route path="equipment/items/:uuid/edit" element={<EquipmentItemFormPage />} />
             {/* Inventory */}
             <Route path="inventory" element={<InventoryPage />} />
+            {/* Schedules */}
+            <Route path="schedules" element={<ScheduleListPage />} />
+            <Route path="schedules/new" element={<ScheduleFormPage />} />
+            <Route path="schedules/:uuid" element={<ScheduleDetailPage />} />
+            <Route path="schedules/:uuid/edit" element={<ScheduleFormPage />} />
           </Route>
         </Routes>
       </BrowserRouter>

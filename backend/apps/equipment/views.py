@@ -337,3 +337,45 @@ def inventory_by_status_view(request):
         data.append(entry)
 
     return Response(data)
+
+
+# ─── Availability ──────────────────────────────────────────────────
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def model_availability_view(request, uuid):
+    """Get availability for a specific equipment model in a time range."""
+    from django.shortcuts import get_object_or_404
+    from django.utils.dateparse import parse_datetime
+    from apps.schedules.models import Schedule
+    from apps.schedules.services import AvailabilityService
+
+    equipment_model = get_object_or_404(EquipmentModel, uuid=uuid)
+
+    start_str = request.query_params.get("start")
+    end_str = request.query_params.get("end")
+
+    if not start_str or not end_str:
+        return Response(
+            {"detail": "start and end query parameters are required."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    start = parse_datetime(start_str)
+    end = parse_datetime(end_str)
+    if not start or not end:
+        return Response(
+            {"detail": "Invalid datetime format. Use ISO 8601."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    exclude_schedule_uuid = request.query_params.get("exclude_schedule")
+    exclude_schedule = None
+    if exclude_schedule_uuid:
+        exclude_schedule = Schedule.objects.filter(uuid=exclude_schedule_uuid).first()
+
+    availability = AvailabilityService.get_model_availability(
+        equipment_model, start, end, exclude_schedule=exclude_schedule
+    )
+    return Response(availability)

@@ -12,6 +12,7 @@ urlpatterns = [
     # Models
     path("models/", views.EquipmentModelListCreateView.as_view(), name="model-list"),
     path("models/<uuid:uuid>/", views.EquipmentModelDetailView.as_view(), name="model-detail"),
+    path("models/<uuid:uuid>/availability/", views.model_availability_view, name="model-availability"),
     # Items
     path("items/", views.EquipmentItemListCreateView.as_view(), name="item-list"),
     path("items/<uuid:uuid>/", views.EquipmentItemDetailView.as_view(), name="item-detail"),
