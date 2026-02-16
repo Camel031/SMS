@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { QueryRefreshIndicator } from "@/components/ui/query-refresh-indicator";
 import {
   Select,
   SelectContent,
@@ -30,6 +31,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useEquipmentModels, useEquipmentItems, useCategoryTree } from "@/hooks/use-equipment";
 import { usePermission } from "@/hooks/use-auth";
+import { getQueryLoadState } from "@/lib/query-load-state";
 import type { EquipmentStatus } from "@/types/equipment";
 
 const STATUS_CONFIG: Record<EquipmentStatus, { label: string; variant: "default" | "secondary" | "destructive" | "outline" | "success" | "warning" | "info" }> = {
@@ -63,6 +65,8 @@ export default function EquipmentPage() {
   const models = useEquipmentModels(tab === "models" ? modelParams : undefined);
   const items = useEquipmentItems(tab === "items" ? itemParams : undefined);
   const categoryTree = useCategoryTree();
+  const activeQuery = tab === "models" ? models : items;
+  const { isInitialLoading, isRefreshing } = getQueryLoadState(activeQuery);
 
   // Flatten category tree for select options
   const flatCategories: Array<{ uuid: string; name: string; depth: number }> = [];
@@ -163,7 +167,8 @@ export default function EquipmentPage() {
 
         {/* Models Tab */}
         <TabsContent value="models">
-          {models.isLoading ? (
+          <QueryRefreshIndicator show={tab === "models" && isRefreshing} />
+          {isInitialLoading && tab === "models" ? (
             <TableSkeleton rows={5} cols={6} />
           ) : models.data?.results.length === 0 ? (
             <EmptyState message="No equipment models found" />
@@ -231,7 +236,8 @@ export default function EquipmentPage() {
 
         {/* Items Tab */}
         <TabsContent value="items">
-          {items.isLoading ? (
+          <QueryRefreshIndicator show={tab === "items" && isRefreshing} />
+          {isInitialLoading && tab === "items" ? (
             <TableSkeleton rows={5} cols={7} />
           ) : items.data?.results.length === 0 ? (
             <EmptyState message="No equipment items found" />

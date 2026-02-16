@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { QueryRefreshIndicator } from "@/components/ui/query-refresh-indicator";
 import { Switch } from "@/components/ui/switch";
 import {
   Table,
@@ -41,6 +42,7 @@ import {
   useUpdateUserPermissions,
   useDeleteUser,
 } from "@/hooks/use-users";
+import { getQueryLoadState } from "@/lib/query-load-state";
 import type { User, UserPermissionPayload } from "@/types/auth";
 
 // ─── Zod Schemas ────────────────────────────────────────────────────
@@ -92,6 +94,7 @@ export default function UserManagementPage() {
   if (search) params.search = search;
 
   const users = useUsers(params);
+  const { isInitialLoading, isRefreshing } = getQueryLoadState(users);
   const createMutation = useCreateUser();
   const deleteMutation = useDeleteUser();
 
@@ -129,7 +132,8 @@ export default function UserManagementPage() {
       </div>
 
       {/* User Table */}
-      {users.isLoading ? (
+      <QueryRefreshIndicator show={isRefreshing} />
+      {isInitialLoading ? (
         <TableSkeleton rows={5} cols={6} />
       ) : users.data?.results.length === 0 ? (
         <EmptyState message="No users found" />

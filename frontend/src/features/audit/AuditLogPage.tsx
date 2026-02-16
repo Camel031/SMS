@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { QueryRefreshIndicator } from "@/components/ui/query-refresh-indicator";
 import {
   Select,
   SelectContent,
@@ -30,6 +31,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useAuditLogs } from "@/hooks/use-audit";
+import { getQueryLoadState } from "@/lib/query-load-state";
 import type { AuditCategory, AuditLog } from "@/types/audit";
 
 const CATEGORY_CONFIG: Record<
@@ -81,6 +83,7 @@ export default function AuditLogPage() {
   if (search) params.search = search;
 
   const auditLogs = useAuditLogs(params);
+  const { isInitialLoading, isRefreshing } = getQueryLoadState(auditLogs);
 
   return (
     <div className="space-y-4">
@@ -128,7 +131,8 @@ export default function AuditLogPage() {
       </div>
 
       {/* Table */}
-      {auditLogs.isLoading ? (
+      <QueryRefreshIndicator show={isRefreshing} />
+      {isInitialLoading ? (
         <TableSkeleton rows={8} cols={6} />
       ) : auditLogs.data?.results.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-md border border-dashed border-border py-16">

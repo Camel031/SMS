@@ -1,4 +1,6 @@
+import { useCallback, useRef } from "react";
 import { NavLink } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   LayoutDashboard,
   Package,
@@ -16,6 +18,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePermission } from "@/hooks/use-auth";
+import { sidebarPrefetchMap } from "@/lib/sidebar-prefetch";
 import { useUIStore } from "@/stores/ui-store";
 import { Separator } from "@/components/ui/separator";
 
@@ -28,8 +31,25 @@ interface NavItem {
 
 export default function Sidebar() {
   const perms = usePermission();
+  const queryClient = useQueryClient();
   const sidebarOpen = useUIStore((s) => s.sidebarOpen);
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
+  const lastPrefetchAtRef = useRef<Record<string, number>>({});
+
+  const triggerPrefetch = useCallback(
+    (to: string) => {
+      const prefetch = sidebarPrefetchMap[to];
+      if (!prefetch) return;
+
+      const now = Date.now();
+      const last = lastPrefetchAtRef.current[to] ?? 0;
+      if (now - last < 10_000) return;
+      lastPrefetchAtRef.current[to] = now;
+
+      void prefetch(queryClient);
+    },
+    [queryClient],
+  );
 
   const mainNav: NavItem[] = [
     { label: "Dashboard", to: "/", icon: LayoutDashboard },
@@ -100,7 +120,12 @@ export default function Sidebar() {
       {/* Main navigation */}
       <nav className="flex-1 space-y-0.5 overflow-y-auto px-2 py-3">
         {mainNav.map((item) => (
-          <SidebarLink key={item.to} item={item} collapsed={!sidebarOpen} />
+          <SidebarLink
+            key={item.to}
+            item={item}
+            collapsed={!sidebarOpen}
+            onIntent={() => triggerPrefetch(item.to)}
+          />
         ))}
 
         {visibleAdmin.length > 0 && (
@@ -116,6 +141,7 @@ export default function Sidebar() {
                 key={item.to}
                 item={item}
                 collapsed={!sidebarOpen}
+                onIntent={() => triggerPrefetch(item.to)}
               />
             ))}
           </>
@@ -128,15 +154,19 @@ export default function Sidebar() {
 function SidebarLink({
   item,
   collapsed,
+  onIntent,
 }: {
   item: NavItem;
   collapsed: boolean;
+  onIntent: () => void;
 }) {
   const Icon = item.icon;
   return (
     <NavLink
       to={item.to}
       end={item.to === "/"}
+      onMouseEnter={onIntent}
+      onFocus={onIntent}
       className={({ isActive }) =>
         cn(
           "group flex items-center gap-3 rounded-md px-2 py-2 text-sm transition-colors",

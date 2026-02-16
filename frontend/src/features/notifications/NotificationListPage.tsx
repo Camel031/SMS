@@ -14,6 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { QueryRefreshIndicator } from "@/components/ui/query-refresh-indicator";
 import {
   Select,
   SelectContent,
@@ -26,6 +27,7 @@ import {
   useMarkAsRead,
   useMarkAllAsRead,
 } from "@/hooks/use-notifications";
+import { getQueryLoadState } from "@/lib/query-load-state";
 import type { Notification, NotificationCategory } from "@/types/notification";
 
 const CATEGORY_ICON: Record<NotificationCategory, typeof Bell> = {
@@ -85,6 +87,7 @@ export default function NotificationListPage() {
   if (readFilter) params.is_read = readFilter;
 
   const notifications = useNotifications(params);
+  const { isInitialLoading, isRefreshing } = getQueryLoadState(notifications);
   const markAsRead = useMarkAsRead();
   const markAllAsRead = useMarkAllAsRead();
 
@@ -159,7 +162,8 @@ export default function NotificationListPage() {
       </div>
 
       {/* List */}
-      {notifications.isLoading ? (
+      <QueryRefreshIndicator show={isRefreshing} />
+      {isInitialLoading ? (
         <div className="space-y-3">
           {Array.from({ length: 5 }).map((_, i) => (
             <div key={i} className="rounded-md border border-border p-4 space-y-2">

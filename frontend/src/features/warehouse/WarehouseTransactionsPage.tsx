@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { QueryRefreshIndicator } from "@/components/ui/query-refresh-indicator";
 import {
   Select,
   SelectContent,
@@ -28,6 +29,7 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useWarehouseTransactions } from "@/hooks/use-warehouse";
+import { getQueryLoadState } from "@/lib/query-load-state";
 import type {
   TransactionType,
   TransactionStatus,
@@ -106,6 +108,7 @@ export default function WarehouseTransactionsPage() {
   if (search) params.search = search;
 
   const transactions = useWarehouseTransactions(params);
+  const { isInitialLoading, isRefreshing } = getQueryLoadState(transactions);
 
   return (
     <div className="space-y-4">
@@ -191,7 +194,8 @@ export default function WarehouseTransactionsPage() {
         {/* Table content */}
         {STATUS_TABS.map((tab) => (
           <TabsContent key={tab.value} value={tab.value}>
-            {transactions.isLoading ? (
+            <QueryRefreshIndicator show={isRefreshing} />
+            {isInitialLoading ? (
               <TableSkeleton rows={5} cols={6} />
             ) : transactions.data?.results.length === 0 ? (
               <EmptyState message="No transactions found" />

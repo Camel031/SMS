@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { QueryRefreshIndicator } from "@/components/ui/query-refresh-indicator";
 import {
   Table,
   TableBody,
@@ -36,6 +37,7 @@ import {
   useExecuteTransfer,
   useCancelTransfer,
 } from "@/hooks/use-transfers";
+import { getQueryLoadState } from "@/lib/query-load-state";
 import type {
   TransferStatus,
   EquipmentTransferList,
@@ -110,6 +112,7 @@ export default function TransferListPage() {
   if (statusTab !== "all") params.status = statusTab;
 
   const transfers = useTransfers(params);
+  const { isInitialLoading, isRefreshing } = getQueryLoadState(transfers);
   const executeMutation = useExecuteTransfer();
   const cancelMutation = useCancelTransfer();
 
@@ -185,7 +188,8 @@ export default function TransferListPage() {
         {/* Table content */}
         {STATUS_TABS.map((tab) => (
           <TabsContent key={tab.value} value={tab.value}>
-            {transfers.isLoading ? (
+            <QueryRefreshIndicator show={isRefreshing} />
+            {isInitialLoading ? (
               <TableSkeleton rows={5} cols={7} />
             ) : transfers.data?.results.length === 0 ? (
               <EmptyState message="No transfers found" />

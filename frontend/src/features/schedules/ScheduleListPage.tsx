@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { QueryRefreshIndicator } from "@/components/ui/query-refresh-indicator";
 import {
   Select,
   SelectContent,
@@ -29,6 +30,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useSchedules } from "@/hooks/use-schedules";
 import { usePermission } from "@/hooks/use-auth";
+import { getQueryLoadState } from "@/lib/query-load-state";
 import type { ScheduleType, ScheduleStatus } from "@/types/schedule";
 
 // ─── Config ─────────────────────────────────────────────────────────
@@ -102,6 +104,7 @@ export default function ScheduleListPage() {
   if (conflictsOnly) params.has_conflicts = "true";
 
   const schedules = useSchedules(params);
+  const { isInitialLoading, isRefreshing } = getQueryLoadState(schedules);
 
   return (
     <div className="space-y-4">
@@ -192,7 +195,8 @@ export default function ScheduleListPage() {
         {/* Table content — rendered for every tab via a single TabsContent per status */}
         {STATUS_TABS.map((tab) => (
           <TabsContent key={tab.value} value={tab.value}>
-            {schedules.isLoading ? (
+            <QueryRefreshIndicator show={isRefreshing} />
+            {isInitialLoading ? (
               <TableSkeleton rows={5} cols={8} />
             ) : schedules.data?.results.length === 0 ? (
               <EmptyState message="No schedules found" />

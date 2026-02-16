@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { QueryRefreshIndicator } from "@/components/ui/query-refresh-indicator";
 import {
   Select,
   SelectContent,
@@ -27,6 +28,7 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useRentalAgreements } from "@/hooks/use-rentals";
+import { getQueryLoadState } from "@/lib/query-load-state";
 import type { RentalDirection, RentalStatus } from "@/types/rental";
 
 // ─── Config ─────────────────────────────────────────────────────────
@@ -92,6 +94,7 @@ export default function RentalListPage() {
   if (search) params.search = search;
 
   const agreements = useRentalAgreements(params);
+  const { isInitialLoading, isRefreshing } = getQueryLoadState(agreements);
 
   return (
     <div className="space-y-4">
@@ -169,7 +172,8 @@ export default function RentalListPage() {
         {/* Table content — rendered for every tab via a single TabsContent per direction */}
         {DIRECTION_TABS.map((tab) => (
           <TabsContent key={tab.value} value={tab.value}>
-            {agreements.isLoading ? (
+            <QueryRefreshIndicator show={isRefreshing} />
+            {isInitialLoading ? (
               <TableSkeleton rows={5} cols={7} />
             ) : agreements.data?.results.length === 0 ? (
               <EmptyState message="No rental agreements found" />
