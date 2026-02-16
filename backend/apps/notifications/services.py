@@ -2,7 +2,25 @@ from django.db.models import QuerySet
 
 from apps.accounts.models import User
 
-from .models import Notification
+from .models import (
+    DEFAULT_PREFERENCES,
+    Notification,
+    UserNotificationPreference,
+)
+
+
+def get_user_preference(user: User, event_type: str, channel: str) -> bool:
+    """Check if a user has a channel enabled for an event type.
+
+    Returns the explicit override if it exists, otherwise the system default.
+    """
+    try:
+        pref = UserNotificationPreference.objects.get(
+            user=user, event_type=event_type, channel=channel,
+        )
+        return pref.is_enabled
+    except UserNotificationPreference.DoesNotExist:
+        return DEFAULT_PREFERENCES.get((event_type, channel), False)
 
 
 class NotificationService:
@@ -19,17 +37,40 @@ class NotificationService:
         entity_type: str = "",
         entity_uuid=None,
         actor: User | None = None,
-    ) -> Notification:
-        return Notification.objects.create(
-            recipient=recipient,
-            category=category,
-            severity=severity,
-            title=title,
-            message=message,
-            entity_type=entity_type,
-            entity_uuid=entity_uuid,
-            actor=actor,
-        )
+        event_type: str | None = None,
+    ) -> Notification | None:
+        """Create a notification and optionally dispatch email.
+
+        When event_type is provided, user preferences are checked per channel.
+        When event_type is None, in-app notification is always created (legacy).
+        """
+        notification = None
+
+        # In-app channel
+        should_in_app = True
+        if event_type:
+            should_in_app = get_user_preference(recipient, event_type, "in_app")
+
+        if should_in_app:
+            notification = Notification.objects.create(
+                recipient=recipient,
+                category=category,
+                severity=severity,
+                title=title,
+                message=message,
+                entity_type=entity_type,
+                entity_uuid=entity_uuid,
+                actor=actor,
+            )
+
+        # Email channel
+        if event_type and get_user_preference(recipient, event_type, "email"):
+            if recipient.email:
+                from .tasks import send_notification_email
+
+                send_notification_email.delay(recipient.email, title, message)
+
+        return notification
 
     @staticmethod
     def notify_many(
@@ -42,21 +83,84 @@ class NotificationService:
         entity_type: str = "",
         entity_uuid=None,
         actor: User | None = None,
+        event_type: str | None = None,
     ) -> list[Notification]:
-        notifications = [
-            Notification(
-                recipient=user,
-                category=category,
-                severity=severity,
-                title=title,
-                message=message,
-                entity_type=entity_type,
-                entity_uuid=entity_uuid,
-                actor=actor,
+        """Create notifications for multiple recipients, respecting preferences."""
+        recipient_list = list(recipients)
+
+        if not event_type:
+            # Legacy path — always create for everyone
+            notifications = [
+                Notification(
+                    recipient=user,
+                    category=category,
+                    severity=severity,
+                    title=title,
+                    message=message,
+                    entity_type=entity_type,
+                    entity_uuid=entity_uuid,
+                    actor=actor,
+                )
+                for user in recipient_list
+            ]
+            return Notification.objects.bulk_create(notifications)
+
+        # Preference-aware path
+        # Batch-fetch all relevant preferences
+        user_ids = [u.pk for u in recipient_list]
+        overrides = {}
+        for pref in UserNotificationPreference.objects.filter(
+            user_id__in=user_ids, event_type=event_type,
+        ):
+            overrides[(pref.user_id, pref.channel)] = pref.is_enabled
+
+        in_app_recipients = []
+        email_recipients = []
+
+        for user in recipient_list:
+            # In-app
+            in_app_key = (user.pk, "in_app")
+            should_in_app = overrides.get(
+                in_app_key,
+                DEFAULT_PREFERENCES.get((event_type, "in_app"), False),
             )
-            for user in recipients
-        ]
-        return Notification.objects.bulk_create(notifications)
+            if should_in_app:
+                in_app_recipients.append(user)
+
+            # Email
+            email_key = (user.pk, "email")
+            should_email = overrides.get(
+                email_key,
+                DEFAULT_PREFERENCES.get((event_type, "email"), False),
+            )
+            if should_email and user.email:
+                email_recipients.append(user)
+
+        # Bulk create in-app notifications
+        notifications = []
+        if in_app_recipients:
+            notifications = Notification.objects.bulk_create([
+                Notification(
+                    recipient=user,
+                    category=category,
+                    severity=severity,
+                    title=title,
+                    message=message,
+                    entity_type=entity_type,
+                    entity_uuid=entity_uuid,
+                    actor=actor,
+                )
+                for user in in_app_recipients
+            ])
+
+        # Queue emails
+        if email_recipients:
+            from .tasks import send_notification_email
+
+            for user in email_recipients:
+                send_notification_email.delay(user.email, title, message)
+
+        return notifications
 
     # ── Trigger helpers ───────────────────────────────────────────
 
@@ -81,6 +185,7 @@ class NotificationService:
             entity_type="warehouse_transaction",
             entity_uuid=transaction.uuid,
             actor=performer,
+            event_type="pending_confirmation",
         )
 
     @classmethod
@@ -95,6 +200,7 @@ class NotificationService:
             entity_type="warehouse_transaction",
             entity_uuid=transaction.uuid,
             actor=confirmer,
+            event_type="pending_confirmation",
         )
 
     @classmethod
@@ -110,6 +216,7 @@ class NotificationService:
             entity_type="warehouse_transaction",
             entity_uuid=transaction.uuid,
             actor=canceller,
+            event_type="pending_confirmation",
         )
 
     @classmethod
@@ -124,6 +231,7 @@ class NotificationService:
                 entity_type="schedule",
                 entity_uuid=schedule.uuid,
                 actor=changed_by,
+                event_type="schedule_changed",
             )
 
     @classmethod
@@ -146,6 +254,7 @@ class NotificationService:
             entity_type="equipment_item",
             entity_uuid=fault.equipment_item.uuid,
             actor=reporter,
+            event_type="fault_reported",
         )
 
     @classmethod
@@ -160,6 +269,7 @@ class NotificationService:
                 entity_type="rental_agreement",
                 entity_uuid=agreement.uuid,
                 actor=changed_by,
+                event_type="rental_expiring",
             )
 
     @classmethod
@@ -181,4 +291,5 @@ class NotificationService:
                 entity_type="equipment_transfer",
                 entity_uuid=transfer.uuid,
                 actor=performer,
+                event_type="equipment_transferred",
             )

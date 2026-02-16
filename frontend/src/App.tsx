@@ -21,9 +21,16 @@ import RentalDetailPage from "@/features/rentals/RentalDetailPage";
 import WarehouseTransactionsPage from "@/features/warehouse/WarehouseTransactionsPage";
 import WarehouseTransactionDetailPage from "@/features/warehouse/WarehouseTransactionDetailPage";
 import PendingConfirmationsPage from "@/features/warehouse/PendingConfirmationsPage";
+import CheckOutPage from "@/features/warehouse/CheckOutPage";
+import CheckInPage from "@/features/warehouse/CheckInPage";
 import TransferListPage from "@/features/transfers/TransferListPage";
+import TransferFormPage from "@/features/transfers/TransferFormPage";
+import TransferDetailPage from "@/features/transfers/TransferDetailPage";
 import NotificationListPage from "@/features/notifications/NotificationListPage";
+import NotificationPreferencesPage from "@/features/notifications/NotificationPreferencesPage";
+import TimelinePage from "@/features/timeline/TimelinePage";
 import AuditLogPage from "@/features/audit/AuditLogPage";
+import UserManagementPage from "@/features/admin/UserManagementPage";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -55,6 +62,8 @@ export default function App() {
             <Route path="equipment/items/:uuid/edit" element={<EquipmentItemFormPage />} />
             {/* Inventory */}
             <Route path="inventory" element={<InventoryPage />} />
+            {/* Timeline */}
+            <Route path="timeline" element={<TimelinePage />} />
             {/* Schedules */}
             <Route path="schedules" element={<ScheduleListPage />} />
             <Route path="schedules/new" element={<ScheduleFormPage />} />
@@ -67,13 +76,20 @@ export default function App() {
             <Route path="rentals/:uuid/edit" element={<RentalFormPage />} />
             {/* Warehouse */}
             <Route path="warehouse" element={<WarehouseTransactionsPage />} />
+            <Route path="warehouse/check-out" element={<CheckOutPage />} />
+            <Route path="warehouse/check-in" element={<CheckInPage />} />
             <Route path="warehouse/pending" element={<PendingConfirmationsPage />} />
             <Route path="warehouse/transactions/:uuid" element={<WarehouseTransactionDetailPage />} />
             {/* Transfers */}
             <Route path="transfers" element={<TransferListPage />} />
+            <Route path="transfers/new" element={<TransferFormPage />} />
+            <Route path="transfers/:uuid" element={<TransferDetailPage />} />
             {/* Notifications */}
             <Route path="notifications" element={<NotificationListPage />} />
+            {/* Settings */}
+            <Route path="settings/notifications" element={<NotificationPreferencesPage />} />
             {/* Admin */}
+            <Route path="admin/users" element={<UserManagementPage />} />
             <Route path="admin/audit-logs" element={<AuditLogPage />} />
           </Route>
         </Routes>

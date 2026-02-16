@@ -100,16 +100,23 @@ export default function NotificationListPage() {
             All system notifications and alerts
           </p>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          className="gap-1"
-          onClick={() => markAllAsRead.mutate()}
-          disabled={markAllAsRead.isPending}
-        >
-          <CheckCheck className="h-3.5 w-3.5" />
-          Mark all read
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1"
+            onClick={() => markAllAsRead.mutate()}
+            disabled={markAllAsRead.isPending}
+          >
+            <CheckCheck className="h-3.5 w-3.5" />
+            Mark all read
+          </Button>
+          <Link to="/settings/notifications">
+            <Button variant="outline" size="icon" className="h-8 w-8" title="Notification preferences">
+              <Settings2 className="h-3.5 w-3.5" />
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* Filters */}

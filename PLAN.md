@@ -1772,143 +1772,268 @@ const { canCheckOut, canManageUsers, requiresConfirmation } = usePermission();
 
 ## Implementation Phases
 
-### Phase 1: Foundation (Week 1-2)
+### Progress Overview
+
+| Phase | 名稱 | 狀態 | 備註 |
+|-------|------|------|------|
+| 1 | Foundation | ✅ Done | Django + React scaffold, auth, permissions |
+| 2 | Equipment Management | ✅ Done | Full CRUD + inventory + custom fields |
+| 3 | Schedule Management | ✅ Done | State machine, equipment allocation, availability |
+| 4 | Warehouse, Transfers & Rentals | ✅ Done | Full CRUD + services + dual-person confirmation |
+| 5 | Notifications & Audit Trail | ✅ Done | 簡化版：基本通知 + 審計日誌（偏好系統/定時任務留 Phase 8） |
+| 6 | Core UX Completion | 🔲 TODO | 出入庫操作頁、移轉完善、使用者管理 |
+| 7 | Dashboard, Timeline & Export | 🔲 TODO | 完整 Dashboard、Gantt 時間軸、Excel 匯出 |
+| 8 | Advanced Notifications | 🔲 TODO | 偏好矩陣、多管道、Celery 定時任務、Reconciliation |
+| 9 | Equipment Utilities | 🔲 TODO | 模板、CSV 匯入、維修 Kanban |
+| 10 | Polish & Production | 🔲 TODO | 效能、mobile、DevOps、CI/CD |
+
+---
+
+### Phase 1: Foundation (Week 1-2) ✅
 
 **Backend**:
-- Django project scaffold + modular settings (base/dev/prod)
-- Docker Compose dev environment (db + redis + backend)
-- Custom User model + Organization model
-- JWT auth (login, logout, refresh, me)
-- Permission system (flags + DRF permission classes)
-- Common base models (TimestampMixin, UUIDMixin)
-- CORS config + API versioning
+- ✅ Django project scaffold + modular settings (base/dev/prod)
+- ✅ Docker Compose dev environment (db + redis + backend)
+- ✅ Custom User model + Organization model
+- ✅ JWT auth (login, logout, refresh, me)
+- ✅ Permission system (flags + DRF permission classes)
+- ✅ Common base models (TimestampMixin, UUIDMixin)
+- ✅ CORS config + API versioning
 
 **Frontend**:
-- Vite + React + TypeScript scaffold
-- Tailwind CSS 4 + shadcn/ui setup
-- Axios API client + auth interceptors + TanStack Query
-- Login page + protected route layout (AppShell: Sidebar + TopBar)
-- Basic routing structure
-- Zustand UI store
+- ✅ Vite + React + TypeScript scaffold
+- ✅ Tailwind CSS 4 + shadcn/ui setup
+- ✅ Axios API client + auth interceptors + TanStack Query
+- ✅ Login page + protected route layout (AppShell: Sidebar + TopBar)
+- ✅ Basic routing structure
+- ✅ Zustand UI store
 
 **Deliverable**: 可登入、看到空 Dashboard with sidebar navigation
 
 ---
 
-### Phase 2: Equipment Management (Week 3-4)
+### Phase 2: Equipment Management (Week 3-4) ✅
 
 **Backend**:
-- EquipmentCategory CRUD (tree structure)
-- EquipmentModel CRUD + custom_fields JSONB
-- EquipmentItem CRUD + status management
-- EquipmentStatusLog + EquipmentStatusService (with SELECT FOR UPDATE)
-- CustomFieldDefinition CRUD + validation service
-- FaultRecord CRUD
-- Inventory endpoints (aggregation)
-- Equipment availability check service
-- Pagination + filtering (django-filter + JSONB filter)
+- ✅ EquipmentCategory CRUD (tree structure)
+- ✅ EquipmentModel CRUD + custom_fields JSONB
+- ✅ EquipmentItem CRUD + status management
+- ✅ EquipmentStatusLog + EquipmentStatusService (with SELECT FOR UPDATE)
+- ✅ CustomFieldDefinition CRUD + validation service
+- ✅ FaultRecord CRUD
+- ✅ Inventory endpoints (aggregation)
+- ✅ Equipment availability check service
+- ✅ Pagination + filtering (django-filter + JSONB filter)
 
 **Frontend**:
-- Equipment Browser page (table + card + grouped views)
-- Equipment Detail page (tabs: overview, history, repairs, faults, schedules)
-- Category management page
-- Equipment creation/edit forms with dynamic custom fields
-- Custom field management page (settings)
-- Fault reporting form
-- Inventory overview page
+- ✅ Equipment Browser page (table + card + grouped views)
+- ✅ Equipment Detail page (tabs: overview, history, repairs, faults, schedules)
+- ✅ Category management page
+- ✅ Equipment creation/edit forms with dynamic custom fields
+- ✅ Custom field management page (settings)
+- ✅ Fault reporting form
+- ✅ Inventory overview page
 
 **Deliverable**: 完整設備 CRUD、自訂欄位、庫存檢視
 
 ---
 
-### Phase 3: Schedule Management (Week 5-6)
+### Phase 3: Schedule Management (Week 5-6) ✅
 
 **Backend**:
-- Schedule model + 三種類型 CRUD + status state machine
-- ScheduleEquipment + annotated querysets (computed quantities)
-- CheckoutRecord model
-- Availability conflict detection service
-- Dispatch events (child schedules)
-- Equipment templates CRUD
-- Excel export service (openpyxl)
-- ScheduleStatusLog
+- ✅ Schedule model + 三種類型 CRUD + status state machine
+- ✅ ScheduleEquipment + annotated querysets (computed quantities)
+- ✅ CheckoutRecord model
+- ✅ Availability conflict detection service
+- ✅ Dispatch events (child schedules)
+- ⏳ Equipment templates CRUD → 移至 Phase 9
+- ⏳ Excel export service (openpyxl) → 移至 Phase 7
+- ✅ ScheduleStatusLog
 
 **Frontend**:
-- **EquipmentSelector component** (search, browse, range select, copy, templates, cart)
-- NumberedItemPicker component
-- Schedule list page (status tabs)
-- Schedule creation form (dynamic by type)
-- Schedule detail page with equipment allocation
-- Availability indicator + conflict warning UI
-- Timeline view (basic Gantt)
-- Excel export button + download flow
+- ✅ **EquipmentSelector component** (search, browse, range select)
+- ✅ NumberedItemPicker component
+- ✅ Schedule list page (status tabs)
+- ✅ Schedule creation form (dynamic by type)
+- ✅ Schedule detail page with equipment allocation
+- ✅ Availability indicator + conflict warning UI
+- ⏳ Timeline view (basic Gantt) → 移至 Phase 7
+- ⏳ Excel export button + download flow → 移至 Phase 7
 
-**Deliverable**: 建立活動/外租/送修並分配器材、衝突偵測、匯出料單
+**Deliverable**: 建立活動/外租/送修並分配器材、衝突偵測
 
 ---
 
-### Phase 4: Warehouse Operations, Transfers & Rentals (Week 7-8)
+### Phase 4: Warehouse Operations, Transfers & Rentals (Week 7-8) ✅
 
 **Backend**:
-- WarehouseTransaction + TransactionLineItem
-- Check-out service (atomic: create transaction → update item status → sync to schedule)
-- Check-in service (reverse flow)
-- Dual-person confirmation flow
-- Auto-populate from schedule endpoint
-- EquipmentTransfer + TransferLineItem CRUD
-- Transfer execution service (close old CheckoutRecord, create new, log TRANSFER)
-- RentalAgreement + RentalAgreementLine CRUD
-- Rental receive service (入庫 or 直接部署 via deploy_to param)
-- Rental return equipment service
-- Reconciliation Celery task
+- ✅ WarehouseTransaction + TransactionLineItem
+- ✅ Check-out service (atomic: create transaction → update item status → sync to schedule)
+- ✅ Check-in service (reverse flow)
+- ✅ Dual-person confirmation flow
+- ✅ Auto-populate from schedule endpoint
+- ✅ EquipmentTransfer + TransferLineItem CRUD
+- ✅ Transfer execution service (close old CheckoutRecord, create new, log TRANSFER)
+- ✅ RentalAgreement + RentalAgreementLine CRUD
+- ✅ Rental receive service (入庫 or 直接部署 via deploy_to param)
+- ✅ Rental return equipment service
+- ⏳ Reconciliation Celery task → 移至 Phase 8
 
 **Frontend**:
-- Check-out page (select schedule or manual, EquipmentSelector, submit)
-- Check-in page (same pattern)
-- Transfer creation modal (from schedule detail → select destination + items)
-- Transfer list + confirmation page
-- Pending confirmations page + confirmation dialog
-- Transaction history page
-- Warehouse dashboard (today's activity, pending items)
-- Rental-in management page (agreements, receive with deploy option, return)
-- Rental-out management page (list, extend, return tracking)
+- ⏳ Check-out page → 移至 Phase 6（目前出入庫透過 API / 排程詳情頁操作）
+- ⏳ Check-in page → 移至 Phase 6
+- ⏳ Transfer creation modal → 移至 Phase 6
+- ✅ Transfer list page
+- ✅ Pending confirmations page + confirmation dialog
+- ✅ Transaction history page
+- ✅ Warehouse transaction detail page
+- ✅ Rental-in management page (agreements list, detail, form)
 
-**Deliverable**: 完整出入倉 + 移轉 + 雙人確認 + 租入租出管理
+**Deliverable**: 完整出入倉 + 移轉 + 雙人確認 + 租入租出管理（API 層完整，前端操作頁待 Phase 6）
 
 ---
 
-### Phase 5: Notifications, Dashboard & Audit (Week 9-10)
+### Phase 5: Notifications, Dashboard & Audit (Week 9-10) ✅
 
 **Backend**:
-- Notification model + NotificationEventType + NotificationChannel
-- UserNotificationPreference (matrix)
-- Celery tasks for notification dispatch
-- Celery Beat periodic tasks (upcoming events, due returns, rental expiring)
-- Email notification (SMTP / SendGrid)
-- NotificationService (check preferences → dispatch)
-- Audit log middleware (full capture)
-- Dashboard aggregation endpoints
+- ✅ Notification model（簡化版：category + severity，無 event type 系統）
+- ⏳ NotificationEventType + NotificationChannel models → 移至 Phase 8
+- ⏳ UserNotificationPreference (matrix) → 移至 Phase 8
+- ✅ Celery task: send_notification_email（含 retry）
+- ⏳ Celery Beat periodic tasks → 移至 Phase 8
+- ✅ NotificationService（trigger helpers for warehouse/schedule/fault/rental/transfer）
+- ✅ AuditLog model + AuditService（含 IP 擷取、JSON changes）
+- ✅ Dashboard summary endpoint（基本計數）
+- ⏳ Dashboard 進階 endpoints → 移至 Phase 7
 
 **Frontend**:
-- Notification bell + unread count (polling 30s)
-- Notification dropdown + list page
-- **Notification preferences matrix page** (desktop: grid, mobile: accordion)
-- Audit log viewer (admin)
-- **Overview Dashboard** (status cards, upcoming, attention items, activity feed, quick actions)
-- Equipment Detail: event history tab (aggregate from audit + transactions)
+- ✅ Notification bell + unread count (30s polling)
+- ✅ Notification dropdown (popover) + list page (含 category/read 過濾)
+- ⏳ Notification preferences matrix page → 移至 Phase 8
+- ✅ Audit log viewer (admin, 含 category/search 過濾 + entity links)
+- ✅ Dashboard page（基本版：stat cards + quick actions）
+- ⏳ Dashboard 完整版（upcoming, attention, activity feed）→ 移至 Phase 7
 
-**Deliverable**: 完整通知系統 + Dashboard + 操作紀錄
+**Deliverable**: 基本通知系統 + 審計日誌 + Dashboard 基礎版（進階功能分散至 Phase 7-8）
 
 ---
 
-### Phase 6: Polish & Production (Week 11-12)
+### Phase 6: Core UX Completion — 出入庫操作頁、移轉完善、使用者管理 (Week 11-12)
+
+> **目標**：填補核心操作流程的前端缺口。目前出入庫只能透過 API 或排程詳情頁觸發，缺少獨立的操作頁面；移轉只有列表頁；使用者管理無前端介面。
 
 **Backend**:
-- Performance optimization (select_related, prefetch_related, query profiling)
-- Production settings (security headers, HTTPS, logging)
-- Database indexes review
-- API documentation (drf-spectacular / Swagger)
-- Comprehensive test suite completion
+- `GET /equipment/models/{uuid}/items/availability/?start=&end=` — 有編號設備逐台可用性查詢（支援序號選取器顯示佔用狀態）
+- Transfer-aware availability 完整版：`get_transfer_aware_allocation()` 時間分割演算法，正確計算移轉前後的 peak 佔用量
+- Users API 完善：`PATCH /users/{uuid}/permissions/` 權限批次更新端點
+
+**Frontend**:
+- **CheckOutPage** (`/warehouse/check-out`)：選擇原因（Schedule / RentalAgreement / 手動）→ 系統帶入規劃設備 → EquipmentSelector 調整 → 提交出庫
+- **CheckInPage** (`/warehouse/check-in`)：選擇來源（Schedule / RentalAgreement / 在外設備列表）→ 勾選歸還設備 → 填寫 condition_on_return → 提交入庫
+- **TransferFormPage** (`/transfers/new`)：選擇來源排程 → 選擇目的排程 → 從已出庫清單選設備 → 設定計畫移轉時間 → 規劃或立即執行
+- **TransferDetailPage** (`/transfers/:uuid`)：移轉詳情 + 確認/取消操作按鈕
+- **UserManagementPage** (`/admin/users`)：使用者列表 + 新增/編輯表單 + 權限 flag toggle
+
+**Deliverable**: 完整的出入庫獨立操作流程、移轉 CRUD、使用者管理
+
+---
+
+### Phase 7: Dashboard Enhancement, Timeline & Excel Export (Week 13-14)
+
+> **目標**：強化資料視覺化與報表能力。Dashboard 從基本計數升級為包含即時排程、待處理事項、活動 feed 的完整控制台；新增 Timeline Gantt 圖；支援料單 Excel 匯出。
+
+**Backend**:
+- `GET /dashboard/upcoming-schedules/?days=7` — 未來 N 天排程列表（含設備概要、出庫進度）
+- `GET /dashboard/attention-items/` — 需處理項目（逾期未歸還、未解決故障、租約到期、待確認交易）
+- `GET /dashboard/recent-activity/?limit=20` — 最近操作 feed（從 AuditLog 聚合）
+- `GET /timeline/?start=&end=&category=` — 時間軸資料（型號層級佔用 + 排程區間 + 衝突標記）
+- `GET /timeline/conflicts/?start=&end=` — 指定時段內的衝突排程
+- ⏳ `GET /schedules/{uuid}/export/excel?include_serial_detail=false` — openpyxl 產生 .xlsx，StreamingResponse 下載（等待使用者提供範例格式後實作）
+
+**Frontend**:
+- **Dashboard 完整版**：Status Breakdown Cards（可點擊跳轉）、Upcoming Schedules（7 天）、Attention Items（按嚴重度排序 + inline action）、Recent Activity Feed、Quick Actions
+- **TimelinePage** (`/timeline`)：雙層級 Gantt Chart
+  - Layer 1：型號層級（每型號一列，顯示各排程佔用區間 + 可用餘量）
+  - Layer 2：點擊展開個別設備分配
+  - 時間刻度切換（週/月/季）、Draft 顯示 toggle、衝突紅色高亮、Hover tooltip
+  - Mobile：改為 agenda-style 垂直列表（按日期分組）
+- ⏳ **Excel 匯出按鈕**：等待使用者提供範例格式
+
+**Deliverable**: 智慧化 Dashboard、設備時間軸（Excel 匯出待範例）
+
+---
+
+### Phase 8: Advanced Notifications & Periodic Tasks (Week 15-16)
+
+> **目標**：將簡化版通知系統升級為 PLAN.md 設計的完整版——支援多管道、使用者偏好矩陣、定時提醒任務。
+
+**Backend**:
+- `NotificationEventType` model（seed data：UPCOMING_EVENT, EQUIPMENT_DUE_RETURN, REPAIR_COMPLETED, PENDING_CONFIRMATION, SCHEDULE_CHANGED, FAULT_REPORTED, RENTAL_EXPIRING, EQUIPMENT_TRANSFERRED, EQUIPMENT_CONFLICT, SYSTEM）
+- `NotificationChannel` model（seed data：in_app, email；預留 push, line 為 disabled）
+- `UserNotificationPreference` model（user × event_type × channel 矩陣）
+- 通知偏好 API：
+  - `GET /notifications/preferences/` — 完整矩陣（含 default fallback）
+  - `PATCH /notifications/preferences/` — 單格切換
+  - `PATCH /notifications/preferences/bulk/` — 整欄切換
+  - `POST /notifications/preferences/reset/` — 恢復預設
+- `NotificationService.send()` 升級：檢查 UserNotificationPreference → 依管道分發
+- Default preferences for new users：in_app 全開、critical events email 開啟
+- Celery Beat 定時任務：
+  - `check_upcoming_events` — 每小時檢查未來 24h 內的 CONFIRMED 排程，通知負責人
+  - `check_equipment_due_return` — 每日檢查出庫超過排程結束日的設備，通知 can_manage_schedules
+  - `check_rental_expiring` — 每日檢查 7 天內到期的租約，通知相關使用者（severity 依剩餘天數遞增）
+  - `reconcile_equipment_status` — 每日凌晨：比對 current_status 與 EquipmentStatusLog、檢查孤立 CheckoutRecord、驗證無編號數量一致性，修正差異並通知管理員
+
+**Frontend**:
+- **NotificationPreferencesPage** (`/settings/notifications`)：
+  - Desktop：矩陣表格（列=事件類型按分類分組、欄=管道、儲存格=Toggle switch）
+  - Mobile：Accordion 收合，每事件一行含管道 toggle
+  - Optimistic update（即時切換 + 背景 PATCH）
+  - 恢復預設按鈕
+
+**Deliverable**: 完整通知偏好系統 + 自動化定時任務 + 每日狀態調和
+
+---
+
+### Phase 9: Equipment Utilities — Templates, Batch Import, Repair Kanban (Week 17-18)
+
+> **目標**：提升設備管理效率的輔助功能——常用器材組合模板、CSV 批次匯入、維修看板。
+
+**Backend**:
+- `CRUD /equipment/templates/` — 設備模板（name, description, items: [{equipment_model, quantity}]）
+- `GET /equipment/recent-selections/?limit=5` — 最近 5 次設備選取紀錄
+- `POST /equipment/batch-import/` — CSV 批次匯入設備（解析、驗證、建立 EquipmentItem + EquipmentStatusLog(REGISTER)，回傳匯入結果摘要）
+- 維修相關 API 擴展：
+  - `GET /schedules/?type=external_repair&status=...` 已有，確認 filter 完善
+  - 維修完成 → 自動建議歸還入庫
+
+**Frontend**:
+- **RepairKanbanPage** (`/repairs`)：
+  - Kanban 看板：三欄（待送修 DRAFT/CONFIRMED → 維修中 IN_PROGRESS → 已完成 COMPLETED）
+  - 卡片：設備名稱、問題描述、維修商、天數
+  - 拖放切換狀態（desktop），Mobile 改為 tab + 垂直列表
+  - 已完成可一鍵「歸還入庫」
+- **EquipmentSelector 增強**：
+  - 「從活動複製」模式：選擇一個排程 → 複製其設備清單
+  - 「載入模板」模式：選擇預存模板 → 合併到 cart
+  - 「最近選取」模式：最近 5 次紀錄一鍵加入
+  - Quick Create Rental modal：器材不足時 inline 建立租賃草稿
+- **CSV 匯入 UI**：設備管理頁新增「批次匯入」按鈕 → 上傳 CSV → 預覽 + 驗證結果 → 確認匯入
+
+**Deliverable**: 設備模板、批次匯入、維修 Kanban、EquipmentSelector 完整六種入口
+
+---
+
+### Phase 10: Polish & Production (Week 19-20)
+
+> **目標**：效能優化、全面 mobile 適配、生產環境部署。
+
+**Backend**:
+- Performance optimization（select_related, prefetch_related, query profiling）
+- Production settings（security headers, HTTPS, logging）
+- Database indexes review + EXPLAIN ANALYZE 驗證慢查詢
+- API documentation（drf-spectacular / Swagger）完善
+- Comprehensive test suite completion（前端 vitest + backend 補齊整合測試）
 - Data seeding / fixtures for demo
 
 **Frontend**:
@@ -1916,14 +2041,15 @@ const { canCheckOut, canManageUsers, requiresConfirmation } = usePermission();
 - Empty states for all lists
 - Error boundary + global error handling
 - Loading skeletons for all data-loading states
-- Touch-friendly interactions for mobile
-- Production build optimization
+- Touch-friendly interactions for mobile（swipe, long-press）
+- Production build optimization（code splitting, lazy routes）
 
 **DevOps**:
-- Production Docker Compose + Nginx + SSL (Let's Encrypt)
-- PostgreSQL backup cron
-- CI/CD pipeline (GitHub Actions: lint, test, build, deploy)
+- Production Docker Compose + Nginx + SSL（Let's Encrypt）
+- PostgreSQL backup cron（每日 pg_dump → 保留 30 天）
+- CI/CD pipeline（GitHub Actions: lint → test → build → deploy）
 - Sentry error tracking
+- Health check endpoints
 
 **Deliverable**: Production-ready system deployed on VPS
 
@@ -1931,14 +2057,14 @@ const { canCheckOut, canManageUsers, requiresConfirmation } = usePermission();
 
 ### Future Phases (Post-Launch)
 
-| Phase | Feature |
-|-------|---------|
-| 7 | Barcode/QR code scanning (camera API, label printing) |
-| 8 | Multi-tenant support (Organization-scoped querysets, tenant middleware) |
-| 9 | Push notifications (Firebase Cloud Messaging) |
-| 10 | Advanced reporting (charts, export to PDF, utilization reports) |
-| 11 | WebSocket real-time updates (Django Channels) |
-| 12 | LINE notification channel integration |
+| Phase | Feature | 說明 |
+|-------|---------|------|
+| 11 | Barcode/QR code scanning | Camera API 掃描、標籤列印、快速出入庫 |
+| 12 | Multi-tenant support | Organization-scoped querysets, tenant middleware |
+| 13 | Push notifications | Firebase Cloud Messaging, service worker |
+| 14 | Advanced reporting | Charts (recharts), PDF export, 設備使用率報表 |
+| 15 | WebSocket real-time updates | Django Channels, 即時通知/狀態同步 |
+| 16 | LINE notification channel | LINE Messaging API 整合 |
 
 ---
 
