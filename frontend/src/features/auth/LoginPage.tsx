@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { isAxiosError } from "axios";
 import { Loader2, Warehouse } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +16,19 @@ const loginSchema = z.object({
 });
 
 type LoginForm = z.infer<typeof loginSchema>;
+
+const INVALID_CREDENTIALS_MESSAGE = "Invalid username or password";
+const SYSTEM_ERROR_MESSAGE = "System error. Please contact the maintainer.";
+
+function getLoginErrorMessage(error: unknown): string {
+  if (isAxiosError(error)) {
+    const status = error.response?.status;
+    if (status === undefined || status >= 500) {
+      return SYSTEM_ERROR_MESSAGE;
+    }
+  }
+  return INVALID_CREDENTIALS_MESSAGE;
+}
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -33,7 +47,7 @@ export default function LoginPage() {
     setErrorMsg("");
     login.mutate(data, {
       onSuccess: () => navigate("/", { replace: true }),
-      onError: () => setErrorMsg("Invalid username or password"),
+      onError: (error) => setErrorMsg(getLoginErrorMessage(error)),
     });
   };
 

@@ -1781,11 +1781,12 @@ const { canCheckOut, canManageUsers, requiresConfirmation } = usePermission();
 | 3 | Schedule Management | ✅ Done | State machine, equipment allocation, availability |
 | 4 | Warehouse, Transfers & Rentals | ✅ Done | Full CRUD + services + dual-person confirmation |
 | 5 | Notifications & Audit Trail | ✅ Done | 簡化版：基本通知 + 審計日誌（偏好系統/定時任務留 Phase 8） |
-| 6 | Core UX Completion | 🔲 TODO | 出入庫操作頁、移轉完善、使用者管理 |
-| 7 | Dashboard, Timeline & Export | 🔲 TODO | 完整 Dashboard、Gantt 時間軸、Excel 匯出 |
-| 8 | Advanced Notifications | 🔲 TODO | 偏好矩陣、多管道、Celery 定時任務、Reconciliation |
-| 9 | Equipment Utilities | 🔲 TODO | 模板、CSV 匯入、維修 Kanban |
-| 10 | Polish & Production | 🔲 TODO | 效能、mobile、DevOps、CI/CD |
+| 6 | Core UX Completion | ✅ Done | 出入庫操作頁、移轉 CRUD、使用者管理 |
+| 7 | Dashboard, Timeline & Export | ✅ Done | 完整 Dashboard、Gantt 時間軸（Excel 匯出待範例） |
+| 8 | Advanced Notifications | ✅ Done | 偏好矩陣、多管道分發、4 個 Celery Beat 定時任務 |
+| 9 | Equipment Utilities | 🔲 TODO | 模板、CSV 匯入、維修 Kanban、序號選取器 |
+| 10 | Data Alignment & Export | 🔲 TODO | Notification 欄位對齊、Display Status、Reconciliation 增強、Excel 匯出 |
+| 11 | Polish, Production & Integrations | 🔲 TODO | 效能、mobile、DevOps、CI/CD、Push/報表 |
 
 ---
 
@@ -1918,78 +1919,65 @@ const { canCheckOut, canManageUsers, requiresConfirmation } = usePermission();
 
 ---
 
-### Phase 6: Core UX Completion — 出入庫操作頁、移轉完善、使用者管理 (Week 11-12)
-
-> **目標**：填補核心操作流程的前端缺口。目前出入庫只能透過 API 或排程詳情頁觸發，缺少獨立的操作頁面；移轉只有列表頁；使用者管理無前端介面。
+### Phase 6: Core UX Completion (Week 11-12) ✅
 
 **Backend**:
-- `GET /equipment/models/{uuid}/items/availability/?start=&end=` — 有編號設備逐台可用性查詢（支援序號選取器顯示佔用狀態）
-- Transfer-aware availability 完整版：`get_transfer_aware_allocation()` 時間分割演算法，正確計算移轉前後的 peak 佔用量
-- Users API 完善：`PATCH /users/{uuid}/permissions/` 權限批次更新端點
+- ✅ `GET /equipment/models/{uuid}/items/availability/?start=&end=` — 有編號設備逐台可用性查詢
+- ✅ `GET /schedules/{uuid}/available-items/` — 排程可出庫設備查詢
+- ✅ Users API 完善：`PATCH /users/{uuid}/permissions/` 權限批次更新端點
+- ✅ Schedule endpoint tests（availability, status transitions）
 
 **Frontend**:
-- **CheckOutPage** (`/warehouse/check-out`)：選擇原因（Schedule / RentalAgreement / 手動）→ 系統帶入規劃設備 → EquipmentSelector 調整 → 提交出庫
-- **CheckInPage** (`/warehouse/check-in`)：選擇來源（Schedule / RentalAgreement / 在外設備列表）→ 勾選歸還設備 → 填寫 condition_on_return → 提交入庫
-- **TransferFormPage** (`/transfers/new`)：選擇來源排程 → 選擇目的排程 → 從已出庫清單選設備 → 設定計畫移轉時間 → 規劃或立即執行
-- **TransferDetailPage** (`/transfers/:uuid`)：移轉詳情 + 確認/取消操作按鈕
-- **UserManagementPage** (`/admin/users`)：使用者列表 + 新增/編輯表單 + 權限 flag toggle
+- ✅ **CheckOutPage** (`/warehouse/check-out`)：選擇原因 → 帶入規劃設備 → 提交出庫
+- ✅ **CheckInPage** (`/warehouse/check-in`)：選擇來源 → 勾選歸還設備 → 提交入庫
+- ✅ **TransferFormPage** (`/transfers/new`)：選擇來源/目的排程 → 選設備 → 規劃或立即執行
+- ✅ **TransferDetailPage** (`/transfers/:uuid`)：移轉詳情 + 操作按鈕
+- ✅ **UserManagementPage** (`/admin/users`)：使用者列表 + 新增/編輯 + 權限 flag toggle
+- ✅ Switch、Checkbox UI 元件（shadcn/ui）
 
 **Deliverable**: 完整的出入庫獨立操作流程、移轉 CRUD、使用者管理
 
 ---
 
-### Phase 7: Dashboard Enhancement, Timeline & Excel Export (Week 13-14)
-
-> **目標**：強化資料視覺化與報表能力。Dashboard 從基本計數升級為包含即時排程、待處理事項、活動 feed 的完整控制台；新增 Timeline Gantt 圖；支援料單 Excel 匯出。
+### Phase 7: Dashboard Enhancement, Timeline & Excel Export (Week 13-14) ✅
 
 **Backend**:
-- `GET /dashboard/upcoming-schedules/?days=7` — 未來 N 天排程列表（含設備概要、出庫進度）
-- `GET /dashboard/attention-items/` — 需處理項目（逾期未歸還、未解決故障、租約到期、待確認交易）
-- `GET /dashboard/recent-activity/?limit=20` — 最近操作 feed（從 AuditLog 聚合）
-- `GET /timeline/?start=&end=&category=` — 時間軸資料（型號層級佔用 + 排程區間 + 衝突標記）
-- `GET /timeline/conflicts/?start=&end=` — 指定時段內的衝突排程
-- ⏳ `GET /schedules/{uuid}/export/excel?include_serial_detail=false` — openpyxl 產生 .xlsx，StreamingResponse 下載（等待使用者提供範例格式後實作）
+- ✅ `GET /dashboard/upcoming-schedules/?days=7` — 未來 N 天排程列表（含設備概要、出庫進度）
+- ✅ `GET /dashboard/attention-items/` — 需處理項目（逾期未歸還、未解決故障、租約到期、待確認交易）
+- ✅ `GET /dashboard/recent-activity/?limit=20` — 最近操作 feed（從 AuditLog 聚合）
+- ✅ `GET /timeline/?start=&end=&category=` — 時間軸資料（型號層級佔用 + 排程區間 + 衝突標記）
+- ✅ `GET /timeline/conflicts/?start=&end=` — 指定時段內的衝突排程
+- ⏳ `GET /schedules/{uuid}/export/excel` — Excel 匯出（等待使用者提供範例格式後實作）
 
 **Frontend**:
-- **Dashboard 完整版**：Status Breakdown Cards（可點擊跳轉）、Upcoming Schedules（7 天）、Attention Items（按嚴重度排序 + inline action）、Recent Activity Feed、Quick Actions
-- **TimelinePage** (`/timeline`)：雙層級 Gantt Chart
-  - Layer 1：型號層級（每型號一列，顯示各排程佔用區間 + 可用餘量）
-  - Layer 2：點擊展開個別設備分配
-  - 時間刻度切換（週/月/季）、Draft 顯示 toggle、衝突紅色高亮、Hover tooltip
-  - Mobile：改為 agenda-style 垂直列表（按日期分組）
+- ✅ **Dashboard 完整版**：Status Breakdown Cards（可點擊跳轉）、Upcoming Schedules（7 天）、Attention Items（按嚴重度排序 + inline action）、Recent Activity Feed、Quick Actions
+- ✅ **TimelinePage** (`/timeline`)：雙層級 Gantt Chart（型號層級 + 展開個別設備、時間刻度切換、Draft toggle、衝突高亮、Mobile agenda 列表）
 - ⏳ **Excel 匯出按鈕**：等待使用者提供範例格式
 
 **Deliverable**: 智慧化 Dashboard、設備時間軸（Excel 匯出待範例）
 
 ---
 
-### Phase 8: Advanced Notifications & Periodic Tasks (Week 15-16)
-
-> **目標**：將簡化版通知系統升級為 PLAN.md 設計的完整版——支援多管道、使用者偏好矩陣、定時提醒任務。
+### Phase 8: Advanced Notifications & Periodic Tasks (Week 15-16) ✅
 
 **Backend**:
-- `NotificationEventType` model（seed data：UPCOMING_EVENT, EQUIPMENT_DUE_RETURN, REPAIR_COMPLETED, PENDING_CONFIRMATION, SCHEDULE_CHANGED, FAULT_REPORTED, RENTAL_EXPIRING, EQUIPMENT_TRANSFERRED, EQUIPMENT_CONFLICT, SYSTEM）
-- `NotificationChannel` model（seed data：in_app, email；預留 push, line 為 disabled）
-- `UserNotificationPreference` model（user × event_type × channel 矩陣）
-- 通知偏好 API：
-  - `GET /notifications/preferences/` — 完整矩陣（含 default fallback）
-  - `PATCH /notifications/preferences/` — 單格切換
-  - `PATCH /notifications/preferences/bulk/` — 整欄切換
-  - `POST /notifications/preferences/reset/` — 恢復預設
-- `NotificationService.send()` 升級：檢查 UserNotificationPreference → 依管道分發
-- Default preferences for new users：in_app 全開、critical events email 開啟
-- Celery Beat 定時任務：
-  - `check_upcoming_events` — 每小時檢查未來 24h 內的 CONFIRMED 排程，通知負責人
-  - `check_equipment_due_return` — 每日檢查出庫超過排程結束日的設備，通知 can_manage_schedules
-  - `check_rental_expiring` — 每日檢查 7 天內到期的租約，通知相關使用者（severity 依剩餘天數遞增）
-  - `reconcile_equipment_status` — 每日凌晨：比對 current_status 與 EquipmentStatusLog、檢查孤立 CheckoutRecord、驗證無編號數量一致性，修正差異並通知管理員
+- ✅ `NotificationEventType` TextChoices（10 事件類型）+ `NotificationChannel` TextChoices（in_app, email）
+- ✅ `UserNotificationPreference` model（user × event_type × channel 矩陣，sparse storage）
+- ✅ `DEFAULT_PREFERENCES` — in_app 全開、critical events (due_return, fault, conflict, system) email 開啟
+- ✅ 通知偏好 API：GET 矩陣 / PATCH 單格 / PATCH bulk 整欄 / POST reset
+- ✅ `NotificationService` 升級：`notify()` + `notify_many()` 加入 event_type 參數，依偏好分發 in_app + email
+- ✅ 7 個 trigger helpers 全部加入 event_type 映射
+- ✅ Celery Beat 定時任務（4 個）：
+  - `check_upcoming_events` — 每小時，未來 24h CONFIRMED 排程
+  - `check_equipment_due_return` — 每日 08:00，逾期未歸還設備
+  - `check_rental_expiring` — 每日 08:00，7 天內到期租約（severity 依剩餘天數）
+  - `reconcile_equipment_status` — 每日 04:00，比對 current_status 與 StatusLog + 孤立 CheckoutRecord
+- ✅ `setup_periodic_tasks` management command + data migration
 
 **Frontend**:
-- **NotificationPreferencesPage** (`/settings/notifications`)：
-  - Desktop：矩陣表格（列=事件類型按分類分組、欄=管道、儲存格=Toggle switch）
-  - Mobile：Accordion 收合，每事件一行含管道 toggle
-  - Optimistic update（即時切換 + 背景 PATCH）
-  - 恢復預設按鈕
+- ✅ **NotificationPreferencesPage** (`/settings/notifications`)：Desktop 矩陣表格 + Mobile 堆疊卡片、Switch toggle、Optimistic update、恢復預設
+- ✅ NotificationListPage 加入 Settings 齒輪圖示連結
+- ✅ App.tsx 加入 `/settings/notifications` 路由
 
 **Deliverable**: 完整通知偏好系統 + 自動化定時任務 + 每日狀態調和
 
@@ -1997,7 +1985,7 @@ const { canCheckOut, canManageUsers, requiresConfirmation } = usePermission();
 
 ### Phase 9: Equipment Utilities — Templates, Batch Import, Repair Kanban (Week 17-18)
 
-> **目標**：提升設備管理效率的輔助功能——常用器材組合模板、CSV 批次匯入、維修看板。
+> **目標**：補齊設備管理效率工具與現場操作入口——模板、CSV 批次匯入、維修看板、序號選取器。
 
 **Backend**:
 - `CRUD /equipment/templates/` — 設備模板（name, description, items: [{equipment_model, quantity}]）
@@ -2013,58 +2001,102 @@ const { canCheckOut, canManageUsers, requiresConfirmation } = usePermission();
   - 卡片：設備名稱、問題描述、維修商、天數
   - 拖放切換狀態（desktop），Mobile 改為 tab + 垂直列表
   - 已完成可一鍵「歸還入庫」
-- **EquipmentSelector 增強**：
+- **NumberedItemPicker 元件**：
+  - 視覺化 grid：每台設備一格，顏色區分狀態（✓ 在庫可用、📋 已排程、🔧 維修中、📤 出租中）
+  - 快速範圍選取：輸入 `#1` 到 `#32`，自動跳過不可用
+  - Shift+Click 範圍選取（Desktop）
+  - 不可用項目灰色 + tooltip 說明原因
+- **EquipmentSelector 增強**（完成 6 種入口模式）：
   - 「從活動複製」模式：選擇一個排程 → 複製其設備清單
   - 「載入模板」模式：選擇預存模板 → 合併到 cart
   - 「最近選取」模式：最近 5 次紀錄一鍵加入
   - Quick Create Rental modal：器材不足時 inline 建立租賃草稿
+- **Equipment Item Detail 頁面補完**：
+  - 新增「維修紀錄」tab：列出關聯的 EXTERNAL_REPAIR 排程歷史
+  - 新增「排程」tab：未來已排定使用此設備的排程
 - **CSV 匯入 UI**：設備管理頁新增「批次匯入」按鈕 → 上傳 CSV → 預覽 + 驗證結果 → 確認匯入
 
-**Deliverable**: 設備模板、批次匯入、維修 Kanban、EquipmentSelector 完整六種入口
+**Deliverable**: 設備模板、批次匯入、維修 Kanban、序號選取器、EquipmentSelector 完整六種入口、設備詳情頁完整五 tabs
 
 ---
 
-### Phase 10: Polish & Production (Week 19-20)
+### Phase 10: Data Alignment & Excel Export (Week 19)
 
-> **目標**：效能優化、全面 mobile 適配、生產環境部署。
+> **目標**：對齊 Plan 設計中尚未完成的資料模型與後端服務；實作 Excel 料單匯出（若使用者已提供範例格式）。
+
+**Backend**:
+- `Notification` model 擴充：
+  - 新增 `notification_type` 欄位（CharField, choices=NotificationEventType），對應事件類型
+  - 新增 `email_sent` BooleanField + `email_sent_at` DateTimeField，追蹤 email 發送狀態
+  - 更新 `NotificationService.notify()` 寫入 notification_type + email 追蹤
+- `get_display_status(item)` 服務方法：
+  - 從 `current_status` + active `CheckoutRecord` 的 `schedule.schedule_type` 推導顯示狀態
+  - 回傳 `in_event` / `in_repair` / `rented_out` / `in_warehouse` / `reserved` 等 display status
+  - 設備列表 API 加入 `display_status` annotation
+- 完善 `reconcile_equipment_status` 定時任務：
+  - 增加 EquipmentTransfer 一致性檢查（transferred_at 已填但 to_schedule 無 CheckoutRecord）
+  - 增加無編號設備數量一致性驗證（total_quantity ≥ Σ active checkout quantity_still_out）
+  - 增加 pending_receipt 設備的租約狀態驗證（租約已取消但設備未清理）
+- ⏳ Excel 料單匯出（`GET /schedules/{uuid}/export/excel`）：openpyxl 產生 .xlsx + StreamingResponse（等待使用者提供範例格式）
+
+**Frontend**:
+- 設備列表 / 詳情頁使用 `display_status` 顯示更精確的狀態（活動中：{活動名}、維修中：{維修商}）
+- ⏳ Excel 匯出按鈕：活動卡片 + 活動詳情頁設備 tab
+
+**Deliverable**: 資料模型與 Plan 完全對齊、Display Status、增強 Reconciliation、Excel 匯出（待範例）
+
+---
+
+### Phase 11: Polish, Production & Integration Tracks (Week 21-24)
+
+> **目標**：先完成 production gate（品質、部署、觀測），再銜接高關聯整合項（Push / Reporting）。
+
+**Track A — Production Gate（必做）**
 
 **Backend**:
 - Performance optimization（select_related, prefetch_related, query profiling）
-- Production settings（security headers, HTTPS, logging）
 - Database indexes review + EXPLAIN ANALYZE 驗證慢查詢
+- Production settings（security headers, HTTPS, logging）
+- Health check endpoints（`/health/live`, `/health/ready`）
 - API documentation（drf-spectacular / Swagger）完善
-- Comprehensive test suite completion（前端 vitest + backend 補齊整合測試）
 - Data seeding / fixtures for demo
 
 **Frontend**:
+- Comprehensive test suite completion（補齊 `vitest` + `@testing-library/react` + `msw`，先覆蓋 auth / dashboard / warehouse / schedules 關鍵流程）
+- Error boundary + global error handling（含 Query 層錯誤統一處理）
+- Production build optimization（route-level code splitting, lazy routes）
 - Mobile-first responsive polish across ALL pages
-- Empty states for all lists
-- Error boundary + global error handling
-- Loading skeletons for all data-loading states
+- Loading skeletons + empty states 全頁一致化（以 shared pattern 收斂）
 - Touch-friendly interactions for mobile（swipe, long-press）
-- Production build optimization（code splitting, lazy routes）
 
 **DevOps**:
 - Production Docker Compose + Nginx + SSL（Let's Encrypt）
-- PostgreSQL backup cron（每日 pg_dump → 保留 30 天）
+- PostgreSQL backup cron（每日 `pg_dump`，保留 30 天）
 - CI/CD pipeline（GitHub Actions: lint → test → build → deploy）
-- Sentry error tracking
-- Health check endpoints
+- Sentry error tracking（backend + frontend 初始化與環境分級）
 
-**Deliverable**: Production-ready system deployed on VPS
+**Track B — Advanced Integrations（由原 Future 14-15 併入）**
+
+**Notifications & Channels**:
+- Push notifications（Firebase Cloud Messaging + service worker）
+
+**Reporting**:
+- Advanced reporting（charts + PDF export + 設備使用率報表）
+
+**Deliverable**: Production-ready system deployed on VPS + integrations roadmap moved into executable track
 
 ---
 
 ### Future Phases (Post-Launch)
 
+> 下列為目前保留在 Post-Launch 的項目（Future 14-15：Push/Reporting 已納入 Phase 11 Track B）。
+
 | Phase | Feature | 說明 |
 |-------|---------|------|
-| 11 | Barcode/QR code scanning | Camera API 掃描、標籤列印、快速出入庫 |
-| 12 | Multi-tenant support | Organization-scoped querysets, tenant middleware |
-| 13 | Push notifications | Firebase Cloud Messaging, service worker |
-| 14 | Advanced reporting | Charts (recharts), PDF export, 設備使用率報表 |
-| 15 | WebSocket real-time updates | Django Channels, 即時通知/狀態同步 |
-| 16 | LINE notification channel | LINE Messaging API 整合 |
+| 12 | Barcode/QR code scanning | Camera API 掃描、標籤列印、快速出入庫 |
+| 13 | Multi-tenant support | Organization-scoped querysets, tenant middleware |
+| 16 | WebSocket real-time updates | Django Channels, 即時通知/狀態同步 |
+| 17 | LINE notification channel | LINE Messaging API 整合 |
 
 ---
 
