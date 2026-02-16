@@ -656,3 +656,138 @@ class ScheduleStatusLogTests(ScheduleTestBase):
         self.assertEqual(confirm_log.from_status, "draft")
         self.assertEqual(confirm_log.to_status, "confirmed")
         self.assertEqual(confirm_log.changed_by, self.user)
+
+
+# ─── 7. Checkout Record Endpoint Tests ─────────────────────────────
+
+
+class ScheduleCheckoutRecordTests(ScheduleTestBase):
+
+    def _setup_checkout(self):
+        """Helper: create schedule with allocation and active checkout."""
+        schedule = self._create_schedule_obj()
+        allocation = ScheduleEquipment.objects.create(
+            schedule=schedule,
+            equipment_model=self.eq_model,
+            quantity_planned=2,
+        )
+        item = EquipmentItem.objects.create(
+            equipment_model=self.eq_model,
+            serial_number="SN-CR-001",
+        )
+        record = CheckoutRecord.objects.create(
+            schedule_equipment=allocation,
+            equipment_item=item,
+            quantity=1,
+            checked_out_at=timezone.now(),
+            checked_out_by=self.user,
+        )
+        return schedule, allocation, item, record
+
+    def test_list_active_checkout_records(self):
+        """GET /schedules/{uuid}/checkout-records/ returns active records."""
+        schedule, allocation, item, record = self._setup_checkout()
+
+        resp = self.client.get(
+            f"/api/v1/schedules/{schedule.uuid}/checkout-records/"
+        )
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(resp.data), 1)
+        self.assertEqual(resp.data[0]["id"], record.id)
+        self.assertTrue(resp.data[0]["is_active"])
+
+    def test_returned_records_excluded(self):
+        """Returned checkout records are not included in the response."""
+        schedule, allocation, item, record = self._setup_checkout()
+        # Mark as returned
+        record.checked_in_at = timezone.now()
+        record.checked_in_by = self.user
+        record.quantity_returned = 1
+        record.save()
+
+        resp = self.client.get(
+            f"/api/v1/schedules/{schedule.uuid}/checkout-records/"
+        )
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(resp.data), 0)
+
+    def test_transferred_records_excluded(self):
+        """Transferred checkout records are not included in the response."""
+        schedule, allocation, item, record = self._setup_checkout()
+        # Mark as transferred
+        record.transferred_at = timezone.now()
+        record.quantity_transferred = 1
+        record.save()
+
+        resp = self.client.get(
+            f"/api/v1/schedules/{schedule.uuid}/checkout-records/"
+        )
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(resp.data), 0)
+
+    def test_multiple_records_mixed(self):
+        """Only active records appear; returned ones are excluded."""
+        schedule, allocation, item1, record1 = self._setup_checkout()
+
+        # Create a second active checkout
+        item2 = EquipmentItem.objects.create(
+            equipment_model=self.eq_model,
+            serial_number="SN-CR-002",
+        )
+        CheckoutRecord.objects.create(
+            schedule_equipment=allocation,
+            equipment_item=item2,
+            quantity=1,
+            checked_out_at=timezone.now(),
+            checked_out_by=self.user,
+        )
+
+        # Return the first one
+        record1.checked_in_at = timezone.now()
+        record1.checked_in_by = self.user
+        record1.quantity_returned = 1
+        record1.save()
+
+        resp = self.client.get(
+            f"/api/v1/schedules/{schedule.uuid}/checkout-records/"
+        )
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(resp.data), 1)
+        self.assertEqual(resp.data[0]["equipment_item"]["serial_number"], "SN-CR-002")
+
+    def test_serializer_fields(self):
+        """Response includes all expected checkout record fields."""
+        schedule, allocation, item, record = self._setup_checkout()
+
+        resp = self.client.get(
+            f"/api/v1/schedules/{schedule.uuid}/checkout-records/"
+        )
+        data = resp.data[0]
+        expected = [
+            "id", "equipment_item", "equipment_model_name", "quantity",
+            "checked_out_at", "checked_out_by", "checked_in_at",
+            "checked_in_by", "quantity_returned", "condition_on_return",
+            "is_active", "quantity_still_out",
+        ]
+        for field in expected:
+            self.assertIn(field, data, f"Missing field: {field}")
+
+    def test_empty_schedule_returns_empty(self):
+        """Schedule with no checkouts returns empty list."""
+        schedule = self._create_schedule_obj()
+
+        resp = self.client.get(
+            f"/api/v1/schedules/{schedule.uuid}/checkout-records/"
+        )
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(resp.data), 0)
+
+    def test_unauthenticated_returns_error(self):
+        """Unauthenticated request is rejected."""
+        schedule = self._create_schedule_obj()
+        self.client.force_authenticate(user=None)
+
+        resp = self.client.get(
+            f"/api/v1/schedules/{schedule.uuid}/checkout-records/"
+        )
+        self.assertIn(resp.status_code, [401, 403])

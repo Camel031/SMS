@@ -3,6 +3,7 @@ import { api } from "@/lib/api";
 import type {
   AvailabilityCheckRequest,
   AvailabilityCheckResponse,
+  CheckoutRecordItem,
   ModelAvailability,
   PaginatedResponse,
   ScheduleDetail,
@@ -286,5 +287,20 @@ export function useCheckAvailability() {
       );
       return data;
     },
+  });
+}
+
+// ─── Checkout Records ──────────────────────────────────────────────
+
+export function useScheduleCheckoutRecords(scheduleUuid: string) {
+  return useQuery({
+    queryKey: ["schedule-checkout-records", scheduleUuid],
+    queryFn: async () => {
+      const { data } = await api.get<CheckoutRecordItem[]>(
+        `/schedules/${scheduleUuid}/checkout-records/`,
+      );
+      return data;
+    },
+    enabled: !!scheduleUuid,
   });
 }

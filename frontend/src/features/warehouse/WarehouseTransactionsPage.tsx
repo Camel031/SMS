@@ -119,6 +119,20 @@ export default function WarehouseTransactionsPage() {
             View check-out and check-in transaction history
           </p>
         </div>
+        <div className="flex items-center gap-2">
+          <Link to="/warehouse/check-out">
+            <Button variant="outline" size="sm" className="gap-1">
+              <ArrowUpFromLine className="h-3.5 w-3.5" />
+              Check Out
+            </Button>
+          </Link>
+          <Link to="/warehouse/check-in">
+            <Button variant="outline" size="sm" className="gap-1">
+              <ArrowDownToLine className="h-3.5 w-3.5" />
+              Check In
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* Status Tabs */}

@@ -8,8 +8,9 @@ from rest_framework.response import Response
 from apps.equipment.models import EquipmentModel
 
 from .filters import ScheduleFilter
-from .models import Schedule, ScheduleEquipment, ScheduleStatusLog
+from .models import CheckoutRecord, Schedule, ScheduleEquipment, ScheduleStatusLog
 from .serializers import (
+    CheckoutRecordSerializer,
     ScheduleListSerializer,
     ScheduleDetailSerializer,
     ScheduleCreateUpdateSerializer,
@@ -333,3 +334,34 @@ def check_availability_view(request):
         start, end, equipment_requests, exclude_schedule=exclude_schedule
     )
     return Response(results)
+
+
+# ─── Checkout Records ──────────────────────────────────────────────
+
+
+class ScheduleCheckoutRecordListView(generics.ListAPIView):
+    """GET /schedules/{schedule_uuid}/checkout-records/
+
+    Returns active checkout records for a schedule (items still out).
+    """
+
+    serializer_class = CheckoutRecordSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    pagination_class = None
+
+    def get_queryset(self):
+        schedule_uuid = self.kwargs["schedule_uuid"]
+        return (
+            CheckoutRecord.objects.filter(
+                schedule_equipment__schedule__uuid=schedule_uuid,
+                checked_in_at__isnull=True,
+                transferred_at__isnull=True,
+            )
+            .select_related(
+                "schedule_equipment__equipment_model",
+                "equipment_item",
+                "checked_out_by",
+                "checked_in_by",
+            )
+            .order_by("-checked_out_at")
+        )

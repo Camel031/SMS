@@ -155,6 +155,12 @@ export default function TransferListPage() {
             Track equipment transfers between schedules
           </p>
         </div>
+        <Link to="/transfers/new">
+          <Button className="gap-1">
+            <ArrowLeftRight className="h-4 w-4" />
+            New Transfer
+          </Button>
+        </Link>
       </div>
 
       {/* Status Tabs */}
