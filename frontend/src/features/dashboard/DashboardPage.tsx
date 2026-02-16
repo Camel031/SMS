@@ -1,5 +1,4 @@
 import { Link } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
 import {
   Package,
   CalendarRange,
@@ -7,48 +6,13 @@ import {
   AlertTriangle,
   FileText,
   ArrowLeftRight,
-  Clock,
   ArrowRight,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { api } from "@/lib/api";
-
-interface DashboardSummary {
-  equipment: {
-    total_models: number;
-    total_items: number;
-    items_available: number;
-    items_out: number;
-  };
-  schedules: {
-    active: number;
-    draft: number;
-  };
-  warehouse: {
-    pending_confirmations: number;
-  };
-  rentals: {
-    active: number;
-    draft: number;
-  };
-  transfers: {
-    planned: number;
-  };
-  faults: {
-    open: number;
-  };
-}
-
-function useDashboardSummary() {
-  return useQuery({
-    queryKey: ["dashboard-summary"],
-    queryFn: async () => {
-      const { data } = await api.get<DashboardSummary>("/dashboard/summary/");
-      return data;
-    },
-    refetchInterval: 60_000,
-  });
-}
+import { useDashboardSummary } from "@/hooks/use-dashboard";
+import UpcomingSchedulesCard from "./UpcomingSchedulesCard";
+import AttentionItemsCard from "./AttentionItemsCard";
+import RecentActivityFeed from "./RecentActivityFeed";
 
 export default function DashboardPage() {
   const summary = useDashboardSummary();
@@ -121,6 +85,15 @@ export default function DashboardPage() {
           to="/inventory"
         />
       </div>
+
+      {/* Upcoming Schedules + Attention Items */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <UpcomingSchedulesCard />
+        <AttentionItemsCard />
+      </div>
+
+      {/* Recent Activity */}
+      <RecentActivityFeed />
 
       {/* Quick actions */}
       <div>

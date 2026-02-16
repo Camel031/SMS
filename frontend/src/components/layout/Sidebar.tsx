@@ -12,6 +12,7 @@ import {
   Settings2,
   FileText,
   ArrowLeftRight,
+  GanttChart,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePermission } from "@/hooks/use-auth";
@@ -35,6 +36,7 @@ export default function Sidebar() {
     { label: "Equipment", to: "/equipment", icon: Package },
     { label: "Inventory", to: "/inventory", icon: BarChart3 },
     { label: "Schedules", to: "/schedules", icon: CalendarRange },
+    { label: "Timeline", to: "/timeline", icon: GanttChart },
     { label: "Rentals", to: "/rentals", icon: FileText },
     { label: "Warehouse", to: "/warehouse", icon: WarehouseIcon },
     { label: "Transfers", to: "/transfers", icon: ArrowLeftRight },
