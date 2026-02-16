@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { Link } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Plus,
   Search,
@@ -30,8 +31,18 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useSchedules } from "@/hooks/use-schedules";
 import { usePermission } from "@/hooks/use-auth";
+import { api } from "@/lib/api";
 import { getQueryLoadState } from "@/lib/query-load-state";
-import type { ScheduleType, ScheduleStatus } from "@/types/schedule";
+import {
+  getTabIntentProps,
+  useTabIntentPrefetch,
+} from "@/lib/tab-intent-prefetch";
+import type {
+  PaginatedResponse,
+  ScheduleListItem,
+  ScheduleType,
+  ScheduleStatus,
+} from "@/types/schedule";
 
 // ─── Config ─────────────────────────────────────────────────────────
 
@@ -73,6 +84,7 @@ const STATUS_TABS = [
   { value: "completed", label: "Completed" },
   { value: "cancelled", label: "Cancelled" },
 ] as const;
+type StatusTabValue = (typeof STATUS_TABS)[number]["value"];
 
 // ─── Helpers ────────────────────────────────────────────────────────
 
@@ -88,7 +100,8 @@ function formatDateRange(start: string, end: string): string {
 // ─── Page Component ─────────────────────────────────────────────────
 
 export default function ScheduleListPage() {
-  const [statusTab, setStatusTab] = useState("all");
+  const queryClient = useQueryClient();
+  const [statusTab, setStatusTab] = useState<StatusTabValue>("all");
   const [typeFilter, setTypeFilter] = useState<string>("");
   const [search, setSearch] = useState("");
   const [conflictsOnly, setConflictsOnly] = useState(false);
@@ -96,12 +109,34 @@ export default function ScheduleListPage() {
 
   const perms = usePermission();
 
+  const buildParams = useCallback(
+    (nextStatusTab: StatusTabValue) => {
+      const next: Record<string, string> = { page: String(page) };
+      if (nextStatusTab !== "all") next.status = nextStatusTab;
+      if (typeFilter) next.schedule_type = typeFilter;
+      if (search) next.search = search;
+      if (conflictsOnly) next.has_conflicts = "true";
+      return next;
+    },
+    [page, typeFilter, search, conflictsOnly],
+  );
+
+  const triggerPrefetch = useTabIntentPrefetch<StatusTabValue>((tab) => {
+    const prefetchParams = buildParams(tab);
+    return queryClient.prefetchQuery({
+      queryKey: ["schedules", prefetchParams],
+      queryFn: async () => {
+        const { data } = await api.get<PaginatedResponse<ScheduleListItem>>(
+          "/schedules/",
+          { params: prefetchParams },
+        );
+        return data;
+      },
+    });
+  });
+
   // Build query params
-  const params: Record<string, string> = { page: String(page) };
-  if (statusTab !== "all") params.status = statusTab;
-  if (typeFilter) params.schedule_type = typeFilter;
-  if (search) params.search = search;
-  if (conflictsOnly) params.has_conflicts = "true";
+  const params = buildParams(statusTab);
 
   const schedules = useSchedules(params);
   const { isInitialLoading, isRefreshing } = getQueryLoadState(schedules);
@@ -130,14 +165,18 @@ export default function ScheduleListPage() {
       <Tabs
         value={statusTab}
         onValueChange={(v) => {
-          setStatusTab(v);
+          setStatusTab(v as StatusTabValue);
           setPage(1);
         }}
       >
         <div className="flex items-center justify-between gap-4">
           <TabsList>
             {STATUS_TABS.map((tab) => (
-              <TabsTrigger key={tab.value} value={tab.value}>
+              <TabsTrigger
+                key={tab.value}
+                value={tab.value}
+                {...getTabIntentProps(tab.value, triggerPrefetch)}
+              >
                 {tab.label}
               </TabsTrigger>
             ))}

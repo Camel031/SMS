@@ -34,6 +34,10 @@ import { useEquipmentModels, useEquipmentItems, useCategoryTree } from "@/hooks/
 import { usePermission } from "@/hooks/use-auth";
 import { api } from "@/lib/api";
 import { getQueryLoadState } from "@/lib/query-load-state";
+import {
+  getTabIntentProps,
+  useTabIntentPrefetch,
+} from "@/lib/tab-intent-prefetch";
 import type {
   EquipmentItem,
   EquipmentModel,
@@ -50,10 +54,11 @@ const STATUS_CONFIG: Record<EquipmentStatus, { label: string; variant: "default"
   retired: { label: "Retired", variant: "outline" },
   returned_to_vendor: { label: "Returned", variant: "outline" },
 };
+type EquipmentTabValue = "models" | "items";
 
 export default function EquipmentPage() {
   const queryClient = useQueryClient();
-  const [tab, setTab] = useState("models");
+  const [tab, setTab] = useState<EquipmentTabValue>("models");
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<string>("");
@@ -82,31 +87,35 @@ export default function EquipmentPage() {
   const modelLoadState = getQueryLoadState(models);
   const itemLoadState = getQueryLoadState(items);
 
-  const prefetchModels = useCallback(() => {
-    void queryClient.prefetchQuery({
-      queryKey: ["equipment-models", modelParams],
-      queryFn: async () => {
-        const { data } = await api.get<PaginatedResponse<EquipmentModel>>(
-          "/equipment/models/",
-          { params: modelParams },
-        );
-        return data;
-      },
-    });
-  }, [modelParams, queryClient]);
+  const prefetchTab = useCallback(
+    (nextTab: EquipmentTabValue) => {
+      if (nextTab === "models") {
+        return queryClient.prefetchQuery({
+          queryKey: ["equipment-models", modelParams],
+          queryFn: async () => {
+            const { data } = await api.get<PaginatedResponse<EquipmentModel>>(
+              "/equipment/models/",
+              { params: modelParams },
+            );
+            return data;
+          },
+        });
+      }
 
-  const prefetchItems = useCallback(() => {
-    void queryClient.prefetchQuery({
-      queryKey: ["equipment-items", itemParams],
-      queryFn: async () => {
-        const { data } = await api.get<PaginatedResponse<EquipmentItem>>(
-          "/equipment/items/",
-          { params: itemParams },
-        );
-        return data;
-      },
-    });
-  }, [itemParams, queryClient]);
+      return queryClient.prefetchQuery({
+        queryKey: ["equipment-items", itemParams],
+        queryFn: async () => {
+          const { data } = await api.get<PaginatedResponse<EquipmentItem>>(
+            "/equipment/items/",
+            { params: itemParams },
+          );
+          return data;
+        },
+      });
+    },
+    [itemParams, modelParams, queryClient],
+  );
+  const triggerPrefetch = useTabIntentPrefetch(prefetchTab);
 
   // Flatten category tree for select options
   const flatCategories: Array<{ uuid: string; name: string; depth: number }> = [];
@@ -145,21 +154,19 @@ export default function EquipmentPage() {
       </div>
 
       {/* Tabs */}
-      <Tabs value={tab} onValueChange={(v) => { setTab(v); setPage(1); }}>
+      <Tabs value={tab} onValueChange={(v) => { setTab(v as EquipmentTabValue); setPage(1); }}>
         <div className="flex items-center justify-between gap-4">
           <TabsList>
             <TabsTrigger
               value="models"
-              onMouseEnter={prefetchModels}
-              onFocus={prefetchModels}
+              {...getTabIntentProps("models", triggerPrefetch)}
             >
               <Package className="mr-1.5 h-3.5 w-3.5" />
               Models
             </TabsTrigger>
             <TabsTrigger
               value="items"
-              onMouseEnter={prefetchItems}
-              onFocus={prefetchItems}
+              {...getTabIntentProps("items", triggerPrefetch)}
             >
               <Package className="mr-1.5 h-3.5 w-3.5" />
               Items

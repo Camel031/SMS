@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Plus,
   Pencil,
@@ -12,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { QueryRefreshIndicator } from "@/components/ui/query-refresh-indicator";
 import {
   Table,
   TableBody,
@@ -44,12 +46,19 @@ import {
   useCategoryTree,
 } from "@/hooks/use-equipment";
 import { usePermission } from "@/hooks/use-auth";
+import { api } from "@/lib/api";
+import { getQueryLoadState } from "@/lib/query-load-state";
+import {
+  getTabIntentProps,
+  useTabIntentPrefetch,
+} from "@/lib/tab-intent-prefetch";
 import type {
   CustomFieldDefinition,
   CustomFieldFormData,
   FieldType,
   EntityType,
   EquipmentCategoryTree,
+  PaginatedResponse,
 } from "@/types/equipment";
 
 // ─── Constants ───────────────────────────────────────────────────────
@@ -67,6 +76,12 @@ const ENTITY_TYPE_OPTIONS: { value: EntityType; label: string }[] = [
   { value: "equipment_model", label: "Equipment Model" },
   { value: "equipment_item", label: "Equipment Item" },
 ];
+const ENTITY_TABS = [
+  { value: "all", label: "All" },
+  { value: "equipment_model", label: "Equipment Model" },
+  { value: "equipment_item", label: "Equipment Item" },
+] as const;
+type EntityTabValue = (typeof ENTITY_TABS)[number]["value"];
 
 const FIELD_TYPE_VARIANT: Record<FieldType, "default" | "secondary" | "info" | "warning" | "outline" | "success"> = {
   text: "secondary",
@@ -121,20 +136,40 @@ const EMPTY_FORM: CustomFieldFormData = {
 // ─── Page Component ──────────────────────────────────────────────────
 
 export default function CustomFieldsPage() {
-  const [entityTab, setEntityTab] = useState<string>("all");
+  const queryClient = useQueryClient();
+  const [entityTab, setEntityTab] = useState<EntityTabValue>("all");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingField, setEditingField] = useState<CustomFieldDefinition | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<CustomFieldDefinition | null>(null);
 
   const perms = usePermission();
 
-  // Build query params based on active tab
-  const queryParams: Record<string, string> | undefined =
-    entityTab !== "all" ? { entity_type: entityTab } : undefined;
+  const buildParams = useCallback((tab: EntityTabValue) => {
+    if (tab === "all") return undefined;
+    return { entity_type: tab } as Record<string, string>;
+  }, []);
 
-  const { data, isLoading } = useCustomFields(queryParams);
+  // Build query params based on active tab
+  const queryParams = buildParams(entityTab);
+  const customFields = useCustomFields(queryParams);
+  const { isInitialLoading, isRefreshing } = getQueryLoadState(customFields);
+  const { data } = customFields;
   const categoryTree = useCategoryTree();
   const flatCategories = flattenCategoryTree(categoryTree.data);
+
+  const triggerPrefetch = useTabIntentPrefetch<EntityTabValue>((tab) => {
+    const prefetchParams = buildParams(tab);
+    return queryClient.prefetchQuery({
+      queryKey: ["custom-fields", prefetchParams],
+      queryFn: async () => {
+        const { data } = await api.get<PaginatedResponse<CustomFieldDefinition>>(
+          "/custom-fields/definitions/",
+          { params: prefetchParams },
+        );
+        return data;
+      },
+    });
+  });
 
   const createMutation = useCreateCustomField();
   const updateMutation = useUpdateCustomField(editingField?.id ?? 0);
@@ -181,15 +216,22 @@ export default function CustomFieldsPage() {
       </div>
 
       {/* Entity type filter tabs */}
-      <Tabs value={entityTab} onValueChange={setEntityTab}>
+      <Tabs value={entityTab} onValueChange={(v) => setEntityTab(v as EntityTabValue)}>
         <TabsList>
-          <TabsTrigger value="all">All</TabsTrigger>
-          <TabsTrigger value="equipment_model">Equipment Model</TabsTrigger>
-          <TabsTrigger value="equipment_item">Equipment Item</TabsTrigger>
+          {ENTITY_TABS.map((tab) => (
+            <TabsTrigger
+              key={tab.value}
+              value={tab.value}
+              {...getTabIntentProps(tab.value, triggerPrefetch)}
+            >
+              {tab.label}
+            </TabsTrigger>
+          ))}
         </TabsList>
 
         <TabsContent value={entityTab}>
-          {isLoading ? (
+          <QueryRefreshIndicator show={isRefreshing} />
+          {isInitialLoading ? (
             <TableSkeleton />
           ) : !data?.results.length ? (
             <EmptyState />

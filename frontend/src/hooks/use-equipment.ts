@@ -310,6 +310,7 @@ export function useCustomFields(params?: Record<string, string>) {
       );
       return data;
     },
+    placeholderData: keepPreviousData,
   });
 }
 

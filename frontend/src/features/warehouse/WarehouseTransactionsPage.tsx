@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { Link } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Search,
   ArrowDownToLine,
@@ -29,8 +30,14 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useWarehouseTransactions } from "@/hooks/use-warehouse";
+import { api } from "@/lib/api";
 import { getQueryLoadState } from "@/lib/query-load-state";
+import {
+  getTabIntentProps,
+  useTabIntentPrefetch,
+} from "@/lib/tab-intent-prefetch";
 import type {
+  PaginatedResponse,
   TransactionType,
   TransactionStatus,
   WarehouseTransactionList,
@@ -71,6 +78,7 @@ const STATUS_TABS = [
   { value: "confirmed", label: "Confirmed" },
   { value: "cancelled", label: "Cancelled" },
 ] as const;
+type StatusTabValue = (typeof STATUS_TABS)[number]["value"];
 
 // ─── Helpers ────────────────────────────────────────────────────────
 
@@ -96,16 +104,39 @@ function getScheduleOrRentalLabel(tx: WarehouseTransactionList): string {
 // ─── Page Component ─────────────────────────────────────────────────
 
 export default function WarehouseTransactionsPage() {
-  const [statusTab, setStatusTab] = useState("all");
+  const queryClient = useQueryClient();
+  const [statusTab, setStatusTab] = useState<StatusTabValue>("all");
   const [typeFilter, setTypeFilter] = useState<string>("");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
 
+  const buildParams = useCallback(
+    (nextStatusTab: StatusTabValue) => {
+      const next: Record<string, string> = { page: String(page) };
+      if (nextStatusTab !== "all") next.status = nextStatusTab;
+      if (typeFilter) next.transaction_type = typeFilter;
+      if (search) next.search = search;
+      return next;
+    },
+    [page, typeFilter, search],
+  );
+
+  const triggerPrefetch = useTabIntentPrefetch<StatusTabValue>((tab) => {
+    const prefetchParams = buildParams(tab);
+    return queryClient.prefetchQuery({
+      queryKey: ["warehouse-transactions", prefetchParams],
+      queryFn: async () => {
+        const { data } = await api.get<PaginatedResponse<WarehouseTransactionList>>(
+          "/warehouse/transactions/",
+          { params: prefetchParams },
+        );
+        return data;
+      },
+    });
+  });
+
   // Build query params
-  const params: Record<string, string> = { page: String(page) };
-  if (statusTab !== "all") params.status = statusTab;
-  if (typeFilter) params.transaction_type = typeFilter;
-  if (search) params.search = search;
+  const params = buildParams(statusTab);
 
   const transactions = useWarehouseTransactions(params);
   const { isInitialLoading, isRefreshing } = getQueryLoadState(transactions);
@@ -142,14 +173,18 @@ export default function WarehouseTransactionsPage() {
       <Tabs
         value={statusTab}
         onValueChange={(v) => {
-          setStatusTab(v);
+          setStatusTab(v as StatusTabValue);
           setPage(1);
         }}
       >
         <div className="flex items-center justify-between gap-4">
           <TabsList>
             {STATUS_TABS.map((tab) => (
-              <TabsTrigger key={tab.value} value={tab.value}>
+              <TabsTrigger
+                key={tab.value}
+                value={tab.value}
+                {...getTabIntentProps(tab.value, triggerPrefetch)}
+              >
                 {tab.label}
               </TabsTrigger>
             ))}

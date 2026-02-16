@@ -31,6 +31,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useRentalAgreements } from "@/hooks/use-rentals";
 import { api } from "@/lib/api";
 import { getQueryLoadState } from "@/lib/query-load-state";
+import {
+  getTabIntentProps,
+  useTabIntentPrefetch,
+} from "@/lib/tab-intent-prefetch";
 import type {
   PaginatedResponse,
   RentalAgreementList,
@@ -74,6 +78,7 @@ const DIRECTION_TABS = [
   { value: "in", label: "Rental In" },
   { value: "out", label: "Rental Out" },
 ] as const;
+type DirectionTabValue = (typeof DIRECTION_TABS)[number]["value"];
 
 // ─── Helpers ────────────────────────────────────────────────────────
 
@@ -90,13 +95,13 @@ function formatDateRange(start: string, end: string): string {
 
 export default function RentalListPage() {
   const queryClient = useQueryClient();
-  const [directionTab, setDirectionTab] = useState("all");
+  const [directionTab, setDirectionTab] = useState<DirectionTabValue>("all");
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
 
   const buildParams = useCallback(
-    (direction: string) => {
+    (direction: DirectionTabValue) => {
       const next: Record<string, string> = { page: String(page) };
       if (direction !== "all") next.direction = direction;
       if (statusFilter) next.status = statusFilter;
@@ -106,22 +111,19 @@ export default function RentalListPage() {
     [page, statusFilter, search],
   );
 
-  const prefetchDirection = useCallback(
-    (direction: string) => {
-      const prefetchParams = buildParams(direction);
-      void queryClient.prefetchQuery({
-        queryKey: ["rental-agreements", prefetchParams],
-        queryFn: async () => {
-          const { data } = await api.get<PaginatedResponse<RentalAgreementList>>(
-            "/rentals/agreements/",
-            { params: prefetchParams },
-          );
-          return data;
-        },
-      });
-    },
-    [buildParams, queryClient],
-  );
+  const triggerPrefetch = useTabIntentPrefetch<DirectionTabValue>((tab) => {
+    const prefetchParams = buildParams(tab);
+    return queryClient.prefetchQuery({
+      queryKey: ["rental-agreements", prefetchParams],
+      queryFn: async () => {
+        const { data } = await api.get<PaginatedResponse<RentalAgreementList>>(
+          "/rentals/agreements/",
+          { params: prefetchParams },
+        );
+        return data;
+      },
+    });
+  });
 
   // Build query params
   const params = buildParams(directionTab);
@@ -153,7 +155,7 @@ export default function RentalListPage() {
       <Tabs
         value={directionTab}
         onValueChange={(v) => {
-          setDirectionTab(v);
+          setDirectionTab(v as DirectionTabValue);
           setPage(1);
         }}
       >
@@ -163,8 +165,7 @@ export default function RentalListPage() {
               <TabsTrigger
                 key={tab.value}
                 value={tab.value}
-                onMouseEnter={() => prefetchDirection(tab.value)}
-                onFocus={() => prefetchDirection(tab.value)}
+                {...getTabIntentProps(tab.value, triggerPrefetch)}
               >
                 {tab.label}
               </TabsTrigger>
