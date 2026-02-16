@@ -1,14 +1,22 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 
+interface SkeletonProps extends React.HTMLAttributes<HTMLDivElement> {
+  immediate?: boolean;
+}
+
 const Skeleton = React.forwardRef<
   HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement>
->(({ className, ...props }, ref) => {
+  SkeletonProps
+>(({ className, immediate = false, ...props }, ref) => {
   return (
     <div
       ref={ref}
-      className={cn("animate-pulse rounded-md bg-muted", className)}
+      className={cn(
+        "rounded-md bg-muted",
+        immediate ? "animate-pulse" : "skeleton-delayed",
+        className,
+      )}
       {...props}
     />
   );
