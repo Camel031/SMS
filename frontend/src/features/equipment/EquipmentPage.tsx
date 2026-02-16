@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Plus,
   Search,
@@ -31,8 +32,14 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useEquipmentModels, useEquipmentItems, useCategoryTree } from "@/hooks/use-equipment";
 import { usePermission } from "@/hooks/use-auth";
+import { api } from "@/lib/api";
 import { getQueryLoadState } from "@/lib/query-load-state";
-import type { EquipmentStatus } from "@/types/equipment";
+import type {
+  EquipmentItem,
+  EquipmentModel,
+  EquipmentStatus,
+  PaginatedResponse,
+} from "@/types/equipment";
 
 const STATUS_CONFIG: Record<EquipmentStatus, { label: string; variant: "default" | "secondary" | "destructive" | "outline" | "success" | "warning" | "info" }> = {
   available: { label: "Available", variant: "success" },
@@ -45,6 +52,7 @@ const STATUS_CONFIG: Record<EquipmentStatus, { label: string; variant: "default"
 };
 
 export default function EquipmentPage() {
+  const queryClient = useQueryClient();
   const [tab, setTab] = useState("models");
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("");
@@ -53,20 +61,52 @@ export default function EquipmentPage() {
 
   const perms = usePermission();
 
-  const modelParams: Record<string, string> = { page: String(page) };
-  if (search) modelParams.search = search;
-  if (categoryFilter) modelParams.category_uuid = categoryFilter;
+  const modelParams = useMemo(() => {
+    const next: Record<string, string> = { page: String(page) };
+    if (search) next.search = search;
+    if (categoryFilter) next.category_uuid = categoryFilter;
+    return next;
+  }, [page, search, categoryFilter]);
 
-  const itemParams: Record<string, string> = { page: String(page) };
-  if (search) itemParams.search = search;
-  if (categoryFilter) itemParams.category_uuid = categoryFilter;
-  if (statusFilter) itemParams.status = statusFilter;
+  const itemParams = useMemo(() => {
+    const next: Record<string, string> = { page: String(page) };
+    if (search) next.search = search;
+    if (categoryFilter) next.category_uuid = categoryFilter;
+    if (statusFilter) next.status = statusFilter;
+    return next;
+  }, [page, search, categoryFilter, statusFilter]);
 
-  const models = useEquipmentModels(tab === "models" ? modelParams : undefined);
-  const items = useEquipmentItems(tab === "items" ? itemParams : undefined);
+  const models = useEquipmentModels(modelParams);
+  const items = useEquipmentItems(itemParams);
   const categoryTree = useCategoryTree();
   const modelLoadState = getQueryLoadState(models);
   const itemLoadState = getQueryLoadState(items);
+
+  const prefetchModels = useCallback(() => {
+    void queryClient.prefetchQuery({
+      queryKey: ["equipment-models", modelParams],
+      queryFn: async () => {
+        const { data } = await api.get<PaginatedResponse<EquipmentModel>>(
+          "/equipment/models/",
+          { params: modelParams },
+        );
+        return data;
+      },
+    });
+  }, [modelParams, queryClient]);
+
+  const prefetchItems = useCallback(() => {
+    void queryClient.prefetchQuery({
+      queryKey: ["equipment-items", itemParams],
+      queryFn: async () => {
+        const { data } = await api.get<PaginatedResponse<EquipmentItem>>(
+          "/equipment/items/",
+          { params: itemParams },
+        );
+        return data;
+      },
+    });
+  }, [itemParams, queryClient]);
 
   // Flatten category tree for select options
   const flatCategories: Array<{ uuid: string; name: string; depth: number }> = [];
@@ -108,11 +148,19 @@ export default function EquipmentPage() {
       <Tabs value={tab} onValueChange={(v) => { setTab(v); setPage(1); }}>
         <div className="flex items-center justify-between gap-4">
           <TabsList>
-            <TabsTrigger value="models">
+            <TabsTrigger
+              value="models"
+              onMouseEnter={prefetchModels}
+              onFocus={prefetchModels}
+            >
               <Package className="mr-1.5 h-3.5 w-3.5" />
               Models
             </TabsTrigger>
-            <TabsTrigger value="items">
+            <TabsTrigger
+              value="items"
+              onMouseEnter={prefetchItems}
+              onFocus={prefetchItems}
+            >
               <Package className="mr-1.5 h-3.5 w-3.5" />
               Items
             </TabsTrigger>

@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { Link } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Plus,
   Search,
@@ -28,8 +29,14 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useRentalAgreements } from "@/hooks/use-rentals";
+import { api } from "@/lib/api";
 import { getQueryLoadState } from "@/lib/query-load-state";
-import type { RentalDirection, RentalStatus } from "@/types/rental";
+import type {
+  PaginatedResponse,
+  RentalAgreementList,
+  RentalDirection,
+  RentalStatus,
+} from "@/types/rental";
 
 // ─── Config ─────────────────────────────────────────────────────────
 
@@ -82,16 +89,42 @@ function formatDateRange(start: string, end: string): string {
 // ─── Page Component ─────────────────────────────────────────────────
 
 export default function RentalListPage() {
+  const queryClient = useQueryClient();
   const [directionTab, setDirectionTab] = useState("all");
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
 
+  const buildParams = useCallback(
+    (direction: string) => {
+      const next: Record<string, string> = { page: String(page) };
+      if (direction !== "all") next.direction = direction;
+      if (statusFilter) next.status = statusFilter;
+      if (search) next.search = search;
+      return next;
+    },
+    [page, statusFilter, search],
+  );
+
+  const prefetchDirection = useCallback(
+    (direction: string) => {
+      const prefetchParams = buildParams(direction);
+      void queryClient.prefetchQuery({
+        queryKey: ["rental-agreements", prefetchParams],
+        queryFn: async () => {
+          const { data } = await api.get<PaginatedResponse<RentalAgreementList>>(
+            "/rentals/agreements/",
+            { params: prefetchParams },
+          );
+          return data;
+        },
+      });
+    },
+    [buildParams, queryClient],
+  );
+
   // Build query params
-  const params: Record<string, string> = { page: String(page) };
-  if (directionTab !== "all") params.direction = directionTab;
-  if (statusFilter) params.status = statusFilter;
-  if (search) params.search = search;
+  const params = buildParams(directionTab);
 
   const agreements = useRentalAgreements(params);
   const { isInitialLoading, isRefreshing } = getQueryLoadState(agreements);
@@ -127,7 +160,12 @@ export default function RentalListPage() {
         <div className="flex items-center justify-between gap-4">
           <TabsList>
             {DIRECTION_TABS.map((tab) => (
-              <TabsTrigger key={tab.value} value={tab.value}>
+              <TabsTrigger
+                key={tab.value}
+                value={tab.value}
+                onMouseEnter={() => prefetchDirection(tab.value)}
+                onFocus={() => prefetchDirection(tab.value)}
+              >
                 {tab.label}
               </TabsTrigger>
             ))}

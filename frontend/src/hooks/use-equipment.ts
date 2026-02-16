@@ -1,4 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import type {
   CategoryFormData,
@@ -116,6 +121,7 @@ export function useEquipmentModels(params?: Record<string, string>) {
       );
       return data;
     },
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -177,6 +183,7 @@ export function useEquipmentItems(params?: Record<string, string>) {
       );
       return data;
     },
+    placeholderData: keepPreviousData,
   });
 }
 

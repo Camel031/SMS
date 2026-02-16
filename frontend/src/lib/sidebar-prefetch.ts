@@ -68,6 +68,12 @@ export const sidebarPrefetchMap: Record<string, PrefetchFn> = {
       ),
       prefetchGet(
         queryClient,
+        ["equipment-items", PAGE_1],
+        "/equipment/items/",
+        PAGE_1,
+      ),
+      prefetchGet(
+        queryClient,
         ["categories", "tree"],
         "/equipment/categories/tree/",
       ),
