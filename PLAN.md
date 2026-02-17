@@ -100,6 +100,7 @@ SMS/
 
 - 所有 model 繼承 `TimestampMixin`（created_at, updated_at）+ `UUIDMixin`（對外 API 用 UUID）
 - 軟刪除用 `is_active` flag
+- **識別策略**：`uuid` 為系統唯一識別鍵（API / Audit / 關聯引用）；`internal_id` 為人類可讀編號，唯一性只限制在同一 `EquipmentModel` 內
 - **統一出入庫模型**：所有設備物理移動（活動、送修、外租、租入收發）都是 CHECK_OUT 或 CHECK_IN，「原因」由關聯的 Schedule 或 RentalAgreement 提供
 - **狀態推導**：`EquipmentItem.current_status` 記錄設備是否在庫，「顯示狀態」（活動中/維修中/外租中）從關聯的 Schedule type 推導
 - **Event Sourcing**：`EquipmentStatusLog` 為 single source of truth，`current_status` 為 denormalized cache
@@ -208,8 +209,7 @@ class EquipmentItem(TimestampMixin, UUIDMixin):
         RETURNED_TO_VENDOR = "returned_to_vendor"  # 租入設備已歸還供應商（terminal）
 
     equipment_model: FK(EquipmentModel, PROTECT)
-    serial_number: CharField(255, unique)
-    internal_id: CharField(100, blank)  # 公司內部編號
+    internal_id: CharField(20)  # 型號內顯示編號（僅數字字串，UI 固定顯示 3 碼）
     ownership_type: CharField(default=OWNED)
     rental_agreement: FK(RentalAgreement, PROTECT, nullable)
     current_status: CharField(default=AVAILABLE)  # denormalized cache
@@ -220,6 +220,7 @@ class EquipmentItem(TimestampMixin, UUIDMixin):
     custom_fields: JSONField(default=dict)  # GIN indexed
     is_active: BooleanField(default=True)
     # Constraints: rental_agreement_consistency CHECK
+    #              UniqueConstraint(fields=["equipment_model", "internal_id"])
     # Indexes: (equipment_model, current_status), (current_status), GIN(custom_fields)
 
 class EquipmentStatusLog(TimestampMixin):
@@ -275,7 +276,7 @@ class FaultRecord(TimestampMixin, UUIDMixin):
 |------|---------|
 | 設備列表（Equipment Browser） | 有未解決故障的設備顯示 badge + 故障數量，可點擊展開 |
 | 設備詳情頁 | 故障 tab 列出所有故障，未解決的置頂 |
-| 器材選擇器（EquipmentSelector） | 序號選取器中有故障的設備顯示警告圖標 + tooltip 說明 |
+| 器材選擇器（EquipmentSelector） | 編號選取器中有故障的設備顯示警告圖標 + tooltip 說明 |
 | 倉庫視圖 | 在庫設備如有未解決故障，加 badge 提醒 |
 
 **API 支援**：設備列表 API 使用 annotation `active_fault_count = Count('faultrecord', filter=Q(faultrecord__is_resolved=False))`，避免 N+1 查詢。
@@ -445,7 +446,7 @@ class ScheduleEquipment(TimestampMixin):
     schedule: FK(Schedule, CASCADE)
     equipment_model: FK(EquipmentModel, PROTECT)
     quantity_planned: PositiveIntegerField
-    planned_items: M2M(EquipmentItem, blank=True)  # 可選：部分或全部指定具體序號
+    planned_items: M2M(EquipmentItem, blank=True)  # 可選：部分或全部指定具體編號
     is_over_allocated: BooleanField(default=False)  # 超選標記（需求 > 可用）
     over_allocation_note: TextField(blank)           # 超選原因/說明
     notes: TextField(blank)
@@ -456,8 +457,8 @@ class ScheduleEquipment(TimestampMixin):
     # quantity_returned → Count(checkout_records where checked_in_at IS NOT NULL)
     # quantity_total_dispatched → Count(checkout_records)
     # quantity_pending → max(0, quantity_planned - quantity_total_dispatched)
-    # quantity_specified → Count(planned_items)  # 已指定序號數量
-    # quantity_unspecified → quantity_planned - quantity_specified  # 尚未指定序號
+    # quantity_specified → Count(planned_items)  # 已指定編號數量
+    # quantity_unspecified → quantity_planned - quantity_specified  # 尚未指定編號
 
 class CheckoutRecord(TimestampMixin):
     """SINGLE SOURCE OF TRUTH for equipment checkout/return — 同時支援有編號和無編號設備"""
@@ -498,7 +499,7 @@ class CheckoutRecord(TimestampMixin):
 
 **效能最佳化**：列表查詢使用 `ScheduleEquipment.objects.with_quantities()` annotated queryset，透過 Django `Count` + `filter` annotation 一次算出所有數量，避免 N+1。
 
-**部分指定序號**：`quantity_planned=8` + `planned_items=[MP-001, MP-002, MP-003, MP-004]` → 已指定 4 台，剩餘 4 台出庫時才選。適用場景：關鍵設備提前預留，其餘彈性調配。
+**部分指定編號**：`quantity_planned=8` + `planned_items=[001, 002, 003, 004]` → 已指定 4 台，剩餘 4 台出庫時才選。適用場景：關鍵設備提前預留，其餘彈性調配。
 
 ---
 
@@ -752,8 +753,8 @@ Response: {
 GET /equipment/models/{uuid}/items/availability/?start=...&end=...
 Response: {
     "items": [
-        {"uuid": "...", "serial_number": "MP-001", "available": true},
-        {"uuid": "...", "serial_number": "MP-002", "available": false,
+        {"uuid": "...", "internal_id": "001", "display_label": "Robe MegaPointe · 001", "available": true},
+        {"uuid": "...", "internal_id": "002", "display_label": "Robe MegaPointe · 002", "available": false,
          "reason": "scheduled", "occupied_by": {"title": "某演唱會", "uuid": "..."}}
     ]
 }
@@ -838,7 +839,7 @@ status: pending_receipt          → available / out
 3. 為每台設備建立 `EquipmentItem`：
    - `ownership_type = "rented_in"`, `rental_agreement = this`
    - `current_status = "pending_receipt"`
-   - 填入序號、內部編號等資訊
+   - 填入 Internal ID（僅數字，可在不同 model 內重複）
 4. 系統寫入 `EquipmentStatusLog(action=REGISTER, to_status=pending_receipt)`
 5. 確認合約 → status=ACTIVE
 6. **設備此時已存在系統中**，可在規劃層被選取（帶「待到貨」標記），但不可出庫
@@ -1300,7 +1301,7 @@ POST /schedules/{uuid}/complete/
 POST /schedules/{uuid}/cancel/
 POST /schedules/{uuid}/reopen/
 POST /schedules/check-availability/
-GET  /schedules/{uuid}/export/excel?include_serial_detail=false
+GET  /schedules/{uuid}/export/excel?include_internal_id_detail=false
 ```
 
 ### Rentals (租入)
@@ -1456,9 +1457,9 @@ GET /audit/logs/?model_name=&object_uuid=&user=
 
 - 三種顯示模式：**分類群組 (預設)** / 表格 / 卡片
 - **分類群組**：每個分類可展開/收合，顯示該分類下每個型號的在庫數/總數/可用率
-- **表格**：完整欄位含序號、型號、品牌、Serial No.、狀態、燈泡時數等
+- **表格**：完整欄位含 Internal ID、型號、品牌、狀態、燈泡時數等
 - **卡片**：設備圖片 + 型號 + 編號 + 狀態 badge
-- 搜尋：即時搜尋（name / serial / brand），debounced
+- 搜尋：即時搜尋（name / internal_id / brand），debounced
 - 篩選：分類 + 品牌 + 狀態 + 自訂欄位，可組合
 - 批次操作：多選 checkbox + Shift 範圍選取
 - Mobile: 預設卡片模式 2 欄 grid，篩選用底部 sheet
@@ -1546,7 +1547,7 @@ MegaPointe (8台)  [▼ 收合]
 
 ### View 8: Equipment Detail View (`/equipment/items/:uuid`)
 
-**Header**: 設備名稱 + 編號 + Serial No. + 狀態 + 操作按鈕（編輯、報修、停用）
+**Header**: 設備名稱 + 型號 + Internal ID + 狀態 + 操作按鈕（編輯、報修、停用）
 
 **Tabs**:
 1. **概覽**：燈泡時數進度條、使用統計（參與場次、維修次數、累積使用天數）
@@ -1568,7 +1569,7 @@ MegaPointe (8台)  [▼ 收合]
 **Desktop**:
 ```
 ┌────────────────────────────────────────────────────────────────────────────┐
-│ 🔍 搜尋設備名稱、型號、序號、品牌...                 [從活動複製] [載入模板]  │
+│ 🔍 搜尋設備名稱、型號、編號、品牌...                 [從活動複製] [載入模板]  │
 ├──────────────────────────────────────────────┬─────────────────────────────┤
 │                                              │ 已選設備 (3 類, 45 件)       │
 │  [Moving Heads] [LED Wash] [Speakers] ...    │                             │
@@ -1576,10 +1577,10 @@ MegaPointe (8台)  [▼ 收合]
 │  ── Moving Heads ──────────────────────      │   MegaPointe ×24            │
 │                                              │   MAC Viper ×8              │
 │  Robe MegaPointe          在庫: 28/32       │                             │
-│  [  ────────────────○ 24 ]      [選序號]     │ ▸ LED Wash (8)              │
+│  [  ────────────────○ 24 ]      [選編號]     │ ▸ LED Wash (8)              │
 │                                              │                             │
 │  MAC Viper Profile        在庫: 20/24       │                             │
-│  [  ────────○ 8 ]               [選序號]     │ [清空] [儲存為模板] [確認]    │
+│  [  ────────○ 8 ]               [選編號]     │ [清空] [儲存為模板] [確認]    │
 └──────────────────────────────────────────────┴─────────────────────────────┘
 ```
 
@@ -1590,9 +1591,9 @@ MegaPointe (8台)  [▼ 收合]
 │ [MH] [Wash] [Conv] [Spk] [→]  │  ← 水平可滑動 category chips
 ├────────────────────────────────┤
 │ Robe MegaPointe    在庫: 28   │
-│ [ ─────────○ 24 ]  [選序號]   │
+│ [ ─────────○ 24 ]  [選編號]   │
 │ MAC Viper Profile  在庫: 20   │
-│ [ ───○ 8 ]         [選序號]   │
+│ [ ───○ 8 ]         [選編號]   │
 ├────────────────────────────────┤
 │ 已選 45 件 (3 類)    [▲ 展開]   │  ← 固定底部 bar
 │              [確認選取]         │
@@ -1605,20 +1606,20 @@ MegaPointe (8台)  [▼ 收合]
 |------|------|---------|
 | **Search** | 搜尋框打字，即時顯示結果，拖 slider 設數量 | 知道要什麼設備 |
 | **Browse** | 點分類 chip → 該分類型號列表 → slider 設數量 | 瀏覽選擇 |
-| **Range Select** | 點 "選序號" → 輸入 #1-32 範圍 → 自動跳過不可用 | 大量有編號設備 |
-| **Copy from Event** | 選擇一個活動 → 複製其設備清單（可選含序號或僅型號數量） | 類似活動 |
+| **Range Select** | 點 "選編號" → 輸入 001-032 範圍 → 自動跳過不可用 | 大量有編號設備 |
+| **Copy from Event** | 選擇一個活動 → 複製其設備清單（可選含編號或僅型號數量） | 類似活動 |
 | **Templates** | 載入預存模板，合併到 cart | 常見固定組合 |
 | **Recent** | 顯示最近 5 次選取紀錄，一鍵加入 | 快速重複 |
 
-### 序號選取器 (NumberedItemPicker)
+### 編號選取器 (NumberedItemPicker)
 
 ```
-┌─ Robe MegaPointe 序號選取 ─────────────────────────────┐
-│ 快速範圍: [#__] 到 [#__]  [加入範圍]                     │
+┌─ Robe MegaPointe 編號選取 ─────────────────────────────┐
+│ 快速範圍: [001] 到 [032]  [加入範圍]                    │
 │                                                         │
-│ [#1 ✓] [#2 ✓] [#3 ✓] ... [#7 🔧] ... [#15 📋] [#16 📋] │
+│ [001 ✓] [002 ✓] [003 ✓] ... [007 🔧] ... [015 📋] [016 📋] │
 │ 圖例: ✓ 在庫可用  📋 已排程  🔧 維修中  📤 出租中           │
-│ 已選: 24 件 (#1-6, #8-14, #17-28)                       │
+│ 已選: 24 件 (001-006, 008-014, 017-028)                 │
 │                                    [取消]  [確認 24 件]   │
 └─────────────────────────────────────────────────────────┘
 ```
@@ -1638,7 +1639,7 @@ interface EquipmentSelection {
   category: string;
   quantity: number;
   isNumbered: boolean;
-  selectedSerialNumbers: string[];
+  selectedInternalIds: string[];
   availableCount: number;
 }
 
@@ -1660,23 +1661,23 @@ interface EquipmentSelection {
 活動日期: 2026/02/14 - 2026/02/16
 場地: 台北小巨蛋 | 負責人: 張三
 ─────────────────────────────────────────────────
-分類      │ 型號             │ 品牌   │ 數量 │ 序號      │ 備註 │ 勾選
-Moving    │ Robe MegaPointe  │ Robe  │  24 │ #1-24    │      │ ☐
-Head      │ MAC Viper Profile│ MA    │   8 │ #1-8     │      │ ☐
-LED Wash  │ MAC Aura XB      │ MA    │  16 │ #1-16    │      │ ☐
+分類      │ 型號             │ 品牌   │ 數量 │ Internal ID │ 備註 │ 勾選
+Moving    │ Robe MegaPointe  │ Robe  │  24 │ 001-024  │      │ ☐
+Head      │ MAC Viper Profile│ MA    │   8 │ 001-008  │      │ ☐
+LED Wash  │ MAC Aura XB      │ MA    │  16 │ 001-016  │      │ ☐
 Cable     │ DMX Cable 10m    │ -     │  20 │ -        │      │ ☐
 ─────────────────────────────────────────────────
                                合計:   142
 出庫人簽名: ________    入庫人簽名: ________    日期: ________
 ```
 
-**Sheet 2: 序號明細 (可選)**
-- 逐一列出每台設備的 Serial No.，含出庫/入庫勾選欄
+**Sheet 2: Internal ID 明細 (可選)**
+- 逐一列出每台設備的 Internal ID，含出庫/入庫勾選欄
 
 ### 技術實作
 
 - Backend: `openpyxl` 產生 .xlsx
-- API: `GET /schedules/{uuid}/export/excel?include_serial_detail=false`
+- API: `GET /schedules/{uuid}/export/excel?include_internal_id_detail=false`
 - Response: `StreamingResponse` + `Content-Disposition: attachment`
 - Frontend: 點擊 `[匯出料單]` → loading spinner → 自動下載
 - 匯出按鈕位置：活動卡片展開後 + 活動詳情頁設備 tab
@@ -1784,8 +1785,9 @@ const { canCheckOut, canManageUsers, requiresConfirmation } = usePermission();
 | 6 | Core UX Completion | ✅ Done | 出入庫操作頁、移轉 CRUD、使用者管理 |
 | 7 | Dashboard, Timeline & Export | ✅ Done | 完整 Dashboard、Gantt 時間軸（Excel 匯出待範例） |
 | 8 | Advanced Notifications | ✅ Done | 偏好矩陣、多管道分發、4 個 Celery Beat 定時任務 |
-| 9 | Equipment Utilities | 🔧 In Progress | 模板、CSV 匯入、維修 Kanban、序號選取器（Gap 修復中） |
-| 10 | Data Alignment & Export | 🔲 TODO | Notification 欄位對齊、Display Status、Reconciliation 增強、Excel 匯出 |
+| S1 | Identifier Unification (Special) | 🔧 In Progress | 單獨執行 `Internal ID + UUID` 改造，不併入一般 Phase |
+| 9 | Equipment Utilities | 🔧 In Progress | 模板、CSV 匯入、維修 Kanban、編號選取器（Gap 修復中） |
+| 10 | Data Alignment & Export | 🔲 TODO | Notification 對齊、Display Status、Reconciliation 增強、Excel 匯出 |
 | 11 | Polish, Production & Integrations | 🔲 TODO | 效能、mobile、DevOps、CI/CD、Push/報表 |
 
 ---
@@ -1983,9 +1985,49 @@ const { canCheckOut, canManageUsers, requiresConfirmation } = usePermission();
 
 ---
 
+### Special Phase S1: Identifier Unification (Internal ID + UUID)
+
+> **目標**：以獨立專案軌執行識別系統改造，統一為 `uuid`（系統唯一鍵）+ `internal_id`（顯示編號），不分散在一般 Phase 9~11。
+
+**核心規格**:
+- 系統唯一識別：`uuid`
+- 顯示格式：`Category -> Brand + Model Name -> Internal ID`
+- `internal_id` 規則：只接受數字；UI 固定 3 碼顯示（`001`, `010`, `099`）
+- 唯一性：同一 `EquipmentModel` 內 `internal_id` 不可重複，不同 model 可重複
+
+**Backend**:
+- 統一 `EquipmentItem` 識別契約：`uuid` + `internal_id`
+- DB constraint 與 index 對齊：`UniqueConstraint(fields=["equipment_model", "internal_id"])`
+- API schema / serializer / filter 僅使用 `internal_id` 作顯示編號欄位
+- 批次建立規格：`start_internal_id + quantity` 自動遞增並補零顯示
+- 既有資料正規化：將舊編號資料轉為 `internal_id`，產出衝突清單供人工決議
+
+**Frontend**:
+- 全站顯示統一：`Brand + Model Name + Internal ID`
+- 搜尋/篩選/table/detail/timeline/picker 全面改為 Internal ID 語意
+- 表單驗證統一：Internal ID 僅數字輸入，錯誤訊息與欄位命名一致
+- 匯入/匯出流程（CSV/Excel）欄位全面對齊 Internal ID
+
+**Data & Ops**:
+- AuditLog / Notification 文案改為顯示 `Brand + Model Name + Internal ID`
+- API 文件（OpenAPI）與 QA 測試案例全面改名對齊
+- 建立回歸測試清單，覆蓋 create/edit/search/filter/export/assignment 流程
+
+**Deliverable**: 全系統識別層完全收斂至 `Internal ID + UUID`，文件/API/UI/測試一致，無舊識別欄位殘留
+
+#### S1 Gap Tracker
+
+- [ ] **S1-1: Schema 對齊** — DB constraints、serializer 欄位、filter 參數全數收斂
+- [ ] **S1-2: Batch 規格固定** — 連號生成、3 碼顯示、跨 model 可重複驗證
+- [ ] **S1-3: 全頁顯示一致** — 所有列表與明細採 `Brand + Model + Internal ID`
+- [ ] **S1-4: 匯入匯出一致** — CSV/Excel 欄位與錯誤訊息僅使用 Internal ID
+- [ ] **S1-5: 文件與測試收斂** — PLAN/OpenAPI/測試案例移除舊識別描述
+
+---
+
 ### Phase 9: Equipment Utilities — Templates, Batch Import, Repair Kanban (Week 17-18)
 
-> **目標**：補齊設備管理效率工具與現場操作入口——模板、CSV 批次匯入、維修看板、序號選取器。
+> **目標**：補齊設備管理效率工具與現場操作入口——模板、CSV 批次匯入、維修看板、編號選取器。
 
 **Backend**:
 - `CRUD /equipment/templates/` — 設備模板（name, description, items: [{equipment_model, quantity}]）
@@ -2003,7 +2045,7 @@ const { canCheckOut, canManageUsers, requiresConfirmation } = usePermission();
   - 已完成可一鍵「歸還入庫」
 - **NumberedItemPicker 元件**：
   - 視覺化 grid：每台設備一格，顏色區分狀態（✓ 在庫可用、📋 已排程、🔧 維修中、📤 出租中）
-  - 快速範圍選取：輸入 `#1` 到 `#32`，自動跳過不可用
+  - 快速範圍選取：輸入 `001` 到 `032`，自動跳過不可用
   - Shift+Click 範圍選取（Desktop）
   - 不可用項目灰色 + tooltip 說明原因
 - **EquipmentSelector 增強**（完成 6 種入口模式）：
@@ -2016,7 +2058,7 @@ const { canCheckOut, canManageUsers, requiresConfirmation } = usePermission();
   - 新增「排程」tab：未來已排定使用此設備的排程
 - **CSV 匯入 UI**：設備管理頁新增「批次匯入」按鈕 → 上傳 CSV → 預覽 + 驗證結果 → 確認匯入
 
-**Deliverable**: 設備模板、批次匯入、維修 Kanban、序號選取器、EquipmentSelector 完整六種入口、設備詳情頁完整五 tabs
+**Deliverable**: 設備模板、批次匯入、維修 Kanban、編號選取器、EquipmentSelector 完整六種入口、設備詳情頁完整五 tabs
 
 #### Phase 9 Gap Tracker
 
@@ -2165,7 +2207,7 @@ black, ruff (linting)
 6. **Production**: `docker compose -f docker-compose.prod.yml up`
 
 ### Key Test Scenarios
-- 建立有編號器材 → 指定序號 → 分配到活動 → 出倉 → 入倉 → 確認狀態回到 available
+- 建立有編號器材 → 指定 Internal ID → 分配到活動 → 出倉 → 入倉 → 確認狀態回到 available
 - 建立兩個時間重疊活動 → 分配同一批器材 → 應偵測到衝突
 - `requires_confirmation` 使用者出倉 → pending 狀態 → 另一人確認 → 設備狀態才變更
 - 無編號器材（線材）出倉 50 條 → 庫存減少 → 入倉 50 條 → 庫存恢復
@@ -2176,11 +2218,11 @@ black, ruff (linting)
 - 租入設備到期但在外：設備在活動中 → 系統阻止歸還 → 告警提示先入庫
 - Schedule 取消（已有設備出庫）→ 回收任務產生 → 設備入庫 → 狀態正確
 - 自訂欄位：建立 Number 欄位 "Wattage" → 建立設備時填入值 → 篩選 Wattage > 400 → 正確回傳
-- Excel 匯出：含序號明細 → 每台設備序號正確列出
+- Excel 匯出：含 Internal ID 明細 → 每台設備編號正確列出
 - 通知偏好：關閉 email 的 schedule_changed → 排程變更時只收到站內通知不收 email
 - 規劃可用性：8 台 MegaPointe，活動 A 佔 6 台(CONFIRMED) → 新活動同時段規劃 → 顯示可用 2 台
 - 超選警告：規劃 4 台但只有 2 台可用 → 允許儲存但 is_over_allocated=True + 紅字 + 通知
-- 部分指定序號：quantity_planned=8，指定 4 台序號 → quantity_specified=4, quantity_unspecified=4
+- 部分指定編號：quantity_planned=8，指定 4 台 Internal ID → quantity_specified=4, quantity_unspecified=4
 - 規劃選擇租入待到貨器材：建立租約(DRAFT) → 規劃排程時 projected_available 含待到貨數量 → 可納入規劃
 - 出庫驗證：規劃含租入待到貨設備 → 出庫時該設備尚未到貨 → 系統阻止出庫 → 到貨入庫後才可出庫
 - Timeline 衝突視覺化：兩個 CONFIRMED 排程重疊 → 型號層 Gantt 顯示紅色衝突 → 展開看個別設備分配
