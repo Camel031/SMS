@@ -47,7 +47,7 @@ class ScheduleListCreateView(generics.ListCreateAPIView):
         # Only show top-level schedules unless ?parent= is provided
         if "parent" not in self.request.query_params:
             qs = qs.filter(parent__isnull=True)
-        return qs
+        return qs.order_by("-start_datetime", "title", "id")
 
     def perform_create(self, serializer):
         schedule = serializer.save(created_by=self.request.user)

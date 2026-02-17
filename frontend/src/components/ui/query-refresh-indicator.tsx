@@ -12,15 +12,16 @@ export function QueryRefreshIndicator({
 
   return (
     <div
-      role="status"
-      aria-live="polite"
-      className={cn(
-        "mb-2 inline-flex items-center gap-1.5 rounded-sm border border-border bg-card px-2 py-1 text-xs text-muted-foreground",
-        className,
-      )}
+      className={cn("pointer-events-none relative h-0", className)}
     >
-      <Loader2 className="h-3 w-3 animate-spin" />
-      Refreshing...
+      <div
+        role="status"
+        aria-live="polite"
+        className="absolute right-0 top-0 inline-flex items-center gap-1.5 rounded-sm border border-border bg-card px-2 py-1 text-xs text-muted-foreground shadow-sm"
+      >
+        <Loader2 className="h-3 w-3 animate-spin" />
+        Refreshing...
+      </div>
     </div>
   );
 }

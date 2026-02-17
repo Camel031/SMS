@@ -2,8 +2,10 @@ import { useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
+import { QueryRefreshIndicator } from "@/components/ui/query-refresh-indicator";
 import { useTimelineData } from "@/hooks/use-timeline";
 import { useCategories } from "@/hooks/use-equipment";
+import { getQueryLoadState } from "@/lib/query-load-state";
 import type { TimeScale } from "@/types/timeline";
 import { getTimeRange, navigate as navFn, getRangeLabel } from "./timeline-utils";
 import GanttChart from "./GanttChart";
@@ -24,12 +26,13 @@ export default function TimelinePage() {
 
   const { start, end } = useMemo(() => getTimeRange(scale, anchor), [scale, anchor]);
 
-  const { data, isLoading } = useTimelineData({
+  const timeline = useTimelineData({
     start: start.toISOString(),
     end: end.toISOString(),
     category: categoryUuid || undefined,
     include_drafts: includeDrafts,
   });
+  const { isInitialLoading, isRefreshing } = getQueryLoadState(timeline);
 
   const { data: categories } = useCategories();
 
@@ -121,7 +124,8 @@ export default function TimelinePage() {
       </div>
 
       {/* Content */}
-      {isLoading ? (
+      <QueryRefreshIndicator show={isRefreshing} />
+      {isInitialLoading ? (
         <div className="space-y-2">
           {Array.from({ length: 5 }).map((_, i) => (
             <Skeleton key={i} className="h-12 w-full rounded-md" />
@@ -132,7 +136,7 @@ export default function TimelinePage() {
           {/* Desktop Gantt */}
           <div className="hidden md:block">
             <GanttChart
-              rows={data?.rows ?? []}
+              rows={timeline.data?.rows ?? []}
               rangeStart={start}
               rangeEnd={end}
               scale={scale}
@@ -145,7 +149,7 @@ export default function TimelinePage() {
 
           {/* Mobile Agenda */}
           <div className="block md:hidden">
-            <AgendaList rows={data?.rows ?? []} />
+            <AgendaList rows={timeline.data?.rows ?? []} />
           </div>
         </>
       )}

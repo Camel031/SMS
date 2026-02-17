@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import type { AuditLog, PaginatedResponse } from "@/types/audit";
 
@@ -12,6 +12,7 @@ export function useAuditLogs(params?: Record<string, string>) {
       );
       return data;
     },
+    placeholderData: keepPreviousData,
   });
 }
 

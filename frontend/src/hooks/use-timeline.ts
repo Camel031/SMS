@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import type { TimelineResponse, TimelineConflict } from "@/types/timeline";
 
@@ -25,6 +25,7 @@ export function useTimelineData(params: {
       return data;
     },
     enabled: !!params.start && !!params.end,
+    placeholderData: keepPreviousData,
   });
 }
 

@@ -113,7 +113,7 @@ export default function ScheduleListPage() {
     (nextStatusTab: StatusTabValue) => {
       const next: Record<string, string> = { page: String(page) };
       if (nextStatusTab !== "all") next.status = nextStatusTab;
-      if (typeFilter) next.schedule_type = typeFilter;
+      if (typeFilter) next.type = typeFilter;
       if (search) next.search = search;
       if (conflictsOnly) next.has_conflicts = "true";
       return next;
@@ -134,6 +134,30 @@ export default function ScheduleListPage() {
       },
     });
   });
+
+  const prefetchTypeOptions = useCallback(() => {
+    const baseParams: Record<string, string> = { page: "1" };
+    if (statusTab !== "all") baseParams.status = statusTab;
+    if (search) baseParams.search = search;
+    if (conflictsOnly) baseParams.has_conflicts = "true";
+
+    const typeValues = Object.keys(TYPE_CONFIG) as ScheduleType[];
+    void Promise.all(
+      typeValues.map((type) => {
+        const params = { ...baseParams, type };
+        return queryClient.prefetchQuery({
+          queryKey: ["schedules", params],
+          queryFn: async () => {
+            const { data } = await api.get<PaginatedResponse<ScheduleListItem>>(
+              "/schedules/",
+              { params },
+            );
+            return data;
+          },
+        });
+      }),
+    );
+  }, [conflictsOnly, queryClient, search, statusTab]);
 
   // Build query params
   const params = buildParams(statusTab);
@@ -198,6 +222,9 @@ export default function ScheduleListPage() {
             </div>
             <Select
               value={typeFilter || "all"}
+              onOpenChange={(open) => {
+                if (open) prefetchTypeOptions();
+              }}
               onValueChange={(v) => {
                 setTypeFilter(v === "all" ? "" : v);
                 setPage(1);

@@ -1,4 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import type {
   User,
@@ -20,6 +25,7 @@ export function useUsers(params?: Record<string, string>) {
       );
       return data;
     },
+    placeholderData: keepPreviousData,
   });
 }
 
