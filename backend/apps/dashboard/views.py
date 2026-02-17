@@ -373,7 +373,14 @@ def timeline_data(request):
     )
 
     if category_uuid:
-        alloc_qs = alloc_qs.filter(equipment_model__category__uuid=category_uuid)
+        category = EquipmentCategory.objects.filter(uuid=category_uuid).first()
+        if category is None:
+            alloc_qs = alloc_qs.none()
+        else:
+            descendant_ids = category.get_descendant_ids(include_self=True)
+            alloc_qs = alloc_qs.filter(
+                equipment_model__category_id__in=descendant_ids
+            )
 
     # Group by equipment model
     model_map = {}  # uuid -> model info dict

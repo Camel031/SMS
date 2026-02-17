@@ -168,6 +168,26 @@ class EquipmentModelAPITest(EquipmentTestBase):
         resp2 = self.client.get("/api/v1/equipment/models/?search=nonexistent")
         self.assertEqual(resp2.data["count"], 0)
 
+    def test_filter_models_by_parent_category_includes_descendants(self):
+        self.login_viewer()
+        child_category = EquipmentCategory.objects.create(
+            name="Beam", slug="beam", parent=self.category
+        )
+        EquipmentModel.objects.create(
+            name="BeamModel",
+            category=child_category,
+            is_numbered=False,
+            total_quantity=5,
+        )
+
+        resp = self.client.get(
+            f"/api/v1/equipment/models/?category_uuid={self.category.uuid}"
+        )
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.data["count"], 2)
+        names = {row["name"] for row in resp.data["results"]}
+        self.assertEqual(names, {"MegaPointe", "BeamModel"})
+
 
 # ─── Equipment Item Tests ───────────────────────────────────────────
 
@@ -234,6 +254,29 @@ class EquipmentItemAPITest(EquipmentTestBase):
         self.login_viewer()
         resp = self.client.get("/api/v1/equipment/items/?search=SN-001")
         self.assertEqual(resp.data["count"], 1)
+
+    def test_filter_items_by_parent_category_includes_descendants(self):
+        self.login_viewer()
+        child_category = EquipmentCategory.objects.create(
+            name="Wash", slug="wash", parent=self.category
+        )
+        child_model = EquipmentModel.objects.create(
+            name="WashModel",
+            category=child_category,
+            is_numbered=True,
+        )
+        EquipmentItem.objects.create(
+            equipment_model=child_model,
+            serial_number="SN-CHILD-001",
+        )
+
+        resp = self.client.get(
+            f"/api/v1/equipment/items/?category_uuid={self.category.uuid}"
+        )
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.data["count"], 2)
+        serials = {row["serial_number"] for row in resp.data["results"]}
+        self.assertEqual(serials, {"SN-001", "SN-CHILD-001"})
 
 
 # ─── Item History Tests ──────────────────────────────────────────────

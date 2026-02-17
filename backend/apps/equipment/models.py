@@ -41,6 +41,31 @@ class EquipmentCategory(TimestampMixin, UUIDMixin):
         parts = [a.name for a in ancestors] + [self.name]
         return " > ".join(parts)
 
+    def get_descendant_ids(self, include_self: bool = True) -> list[int]:
+        """Return this category's descendant IDs (BFS), optionally including self."""
+        if self.id is None:
+            return []
+
+        descendant_ids: list[int] = [self.id] if include_self else []
+        frontier = [self.id]
+        visited = {self.id}
+
+        while frontier:
+            child_ids = list(
+                EquipmentCategory.objects.filter(parent_id__in=frontier).values_list(
+                    "id", flat=True
+                )
+            )
+            frontier = []
+            for child_id in child_ids:
+                if child_id in visited:
+                    continue
+                visited.add(child_id)
+                descendant_ids.append(child_id)
+                frontier.append(child_id)
+
+        return descendant_ids
+
 
 class EquipmentModel(TimestampMixin, UUIDMixin):
     """Equipment type (e.g., 'Robe MegaPointe'). Not an individual item."""

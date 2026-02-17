@@ -646,6 +646,43 @@ class TimelineDataTest(TestCase):
         self.assertEqual(len(resp.data["rows"]), 1)
         self.assertEqual(resp.data["rows"][0]["equipment_model"]["name"], "Light")
 
+    def test_category_filter_includes_descendants(self):
+        """Parent category filter includes descendant category models."""
+        child_category = EquipmentCategory.objects.create(
+            name="Beam", slug="beam", parent=self.category
+        )
+        model_parent = EquipmentModel.objects.create(
+            name="ParentLight", category=self.category, is_numbered=False,
+            total_quantity=10,
+        )
+        model_child = EquipmentModel.objects.create(
+            name="ChildBeam", category=child_category, is_numbered=False,
+            total_quantity=5,
+        )
+
+        s = Schedule.objects.create(
+            title="Event", status="confirmed", contact_name="Test",
+            start_datetime=self.now + timedelta(days=1),
+            end_datetime=self.now + timedelta(days=3),
+            created_by=self.user,
+        )
+        ScheduleEquipment.objects.create(
+            schedule=s, equipment_model=model_parent, quantity_planned=2,
+        )
+        ScheduleEquipment.objects.create(
+            schedule=s, equipment_model=model_child, quantity_planned=1,
+        )
+
+        resp = self.client.get("/api/v1/dashboard/timeline/", {
+            "start": self.now.isoformat(),
+            "end": (self.now + timedelta(days=7)).isoformat(),
+            "category": str(self.category.uuid),
+        })
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(len(resp.data["rows"]), 2)
+        names = {row["equipment_model"]["name"] for row in resp.data["rows"]}
+        self.assertEqual(names, {"ParentLight", "ChildBeam"})
+
     def test_missing_params_returns_400(self):
         """Missing start/end returns 400."""
         resp = self.client.get("/api/v1/dashboard/timeline/")

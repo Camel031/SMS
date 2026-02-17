@@ -1,11 +1,33 @@
 import django_filters
 
-from .models import EquipmentItem, EquipmentModel, FaultRecord
+from .models import EquipmentCategory, EquipmentItem, EquipmentModel, FaultRecord
 
 
-class EquipmentModelFilter(django_filters.FilterSet):
-    category = django_filters.NumberFilter(field_name="category__id")
-    category_uuid = django_filters.UUIDFilter(field_name="category__uuid")
+class CategoryDescendantFilterMixin:
+    """Expand category filters to include descendant categories."""
+
+    @staticmethod
+    def _get_descendant_ids(category: EquipmentCategory) -> list[int]:
+        return category.get_descendant_ids(include_self=True)
+
+    def filter_category_by_id(self, queryset, value, *, field_name: str):
+        category = EquipmentCategory.objects.filter(id=value).first()
+        if category is None:
+            return queryset.none()
+        descendant_ids = self._get_descendant_ids(category)
+        return queryset.filter(**{f"{field_name}__in": descendant_ids})
+
+    def filter_category_by_uuid(self, queryset, value, *, field_name: str):
+        category = EquipmentCategory.objects.filter(uuid=value).first()
+        if category is None:
+            return queryset.none()
+        descendant_ids = self._get_descendant_ids(category)
+        return queryset.filter(**{f"{field_name}__in": descendant_ids})
+
+
+class EquipmentModelFilter(CategoryDescendantFilterMixin, django_filters.FilterSet):
+    category = django_filters.NumberFilter(method="filter_category")
+    category_uuid = django_filters.UUIDFilter(method="filter_category_uuid")
     is_numbered = django_filters.BooleanFilter()
     is_active = django_filters.BooleanFilter()
 
@@ -13,12 +35,22 @@ class EquipmentModelFilter(django_filters.FilterSet):
         model = EquipmentModel
         fields = ["category", "category_uuid", "is_numbered", "is_active"]
 
+    def filter_category(self, queryset, name, value):
+        return self.filter_category_by_id(
+            queryset, value, field_name="category_id"
+        )
 
-class EquipmentItemFilter(django_filters.FilterSet):
+    def filter_category_uuid(self, queryset, name, value):
+        return self.filter_category_by_uuid(
+            queryset, value, field_name="category_id"
+        )
+
+
+class EquipmentItemFilter(CategoryDescendantFilterMixin, django_filters.FilterSet):
     model = django_filters.NumberFilter(field_name="equipment_model__id")
     model_uuid = django_filters.UUIDFilter(field_name="equipment_model__uuid")
-    category = django_filters.NumberFilter(field_name="equipment_model__category__id")
-    category_uuid = django_filters.UUIDFilter(field_name="equipment_model__category__uuid")
+    category = django_filters.NumberFilter(method="filter_category")
+    category_uuid = django_filters.UUIDFilter(method="filter_category_uuid")
     status = django_filters.ChoiceFilter(
         field_name="current_status", choices=EquipmentItem.Status.choices
     )
@@ -43,6 +75,16 @@ class EquipmentItemFilter(django_filters.FilterSet):
         if value:
             return queryset.filter(active_fault_count__gt=0)
         return queryset.filter(active_fault_count=0)
+
+    def filter_category(self, queryset, name, value):
+        return self.filter_category_by_id(
+            queryset, value, field_name="equipment_model__category_id"
+        )
+
+    def filter_category_uuid(self, queryset, name, value):
+        return self.filter_category_by_uuid(
+            queryset, value, field_name="equipment_model__category_id"
+        )
 
 
 class FaultRecordFilter(django_filters.FilterSet):
