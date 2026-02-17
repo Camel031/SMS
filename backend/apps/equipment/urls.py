@@ -15,6 +15,7 @@ urlpatterns = [
     path("models/<uuid:uuid>/availability/", views.model_availability_view, name="model-availability"),
     # Items
     path("items/", views.EquipmentItemListCreateView.as_view(), name="item-list"),
+    path("items/batch/", views.EquipmentItemBatchCreateView.as_view(), name="item-batch-create"),
     path("items/<uuid:uuid>/", views.EquipmentItemDetailView.as_view(), name="item-detail"),
     path("items/<uuid:uuid>/history/", views.EquipmentItemHistoryView.as_view(), name="item-history"),
     path("items/<uuid:uuid>/fault/", views.FaultRecordCreateView.as_view(), name="item-fault-create"),

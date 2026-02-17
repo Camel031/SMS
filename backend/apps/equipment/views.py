@@ -1,3 +1,4 @@
+from django.db import IntegrityError, transaction
 from django.db.models import Count, Q
 from django.utils import timezone
 from rest_framework import generics, status
@@ -19,6 +20,7 @@ from .models import (
 from .serializers import (
     EquipmentCategorySerializer,
     EquipmentCategoryTreeSerializer,
+    EquipmentItemBatchCreateSerializer,
     EquipmentItemCreateUpdateSerializer,
     EquipmentItemDetailSerializer,
     EquipmentItemListSerializer,
@@ -170,6 +172,70 @@ class EquipmentItemListCreateView(generics.ListCreateAPIView):
     def perform_create(self, serializer):
         item = serializer.save()
         EquipmentStatusService.register(item, self.request.user)
+
+
+class EquipmentItemBatchCreateView(generics.CreateAPIView):
+    serializer_class = EquipmentItemBatchCreateSerializer
+
+    def get_permissions(self):
+        return [IsAuthenticated(), CanManageEquipment()]
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+
+        quantity = data["quantity"]
+        start_value = int(data["internal_id"])
+        generated_ids = [f"{start_value + i:03d}" for i in range(quantity)]
+        duplicates = sorted(
+            EquipmentItem.objects.filter(
+                equipment_model=data["equipment_model"],
+                serial_number__in=generated_ids,
+            )
+            .values_list("serial_number", flat=True)
+            .distinct()
+        )
+        if duplicates:
+            return Response(
+                {
+                    "internal_id": [
+                        f"ID range conflicts with existing serial numbers: {', '.join(duplicates)}"
+                    ]
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        created_items = []
+        try:
+            with transaction.atomic():
+                for generated_id in generated_ids:
+                    item = EquipmentItem.objects.create(
+                        equipment_model=data["equipment_model"],
+                        serial_number=generated_id,
+                        internal_id=generated_id,
+                        ownership_type=data.get("ownership_type", EquipmentItem.OwnershipType.OWNED),
+                        rental_agreement=data.get("rental_agreement"),
+                        lamp_hours=data.get("lamp_hours", 0),
+                        purchase_date=data.get("purchase_date"),
+                        warranty_expiry=data.get("warranty_expiry"),
+                        notes=data.get("notes", ""),
+                        custom_fields=data.get("custom_fields", {}),
+                        is_active=data.get("is_active", True),
+                    )
+                    EquipmentStatusService.register(item, request.user)
+                    created_items.append(item)
+        except IntegrityError:
+            return Response(
+                {"detail": "Failed to create items due to a duplicate serial number."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        response_data = {
+            "count": len(created_items),
+            "items": EquipmentItemListSerializer(created_items, many=True).data,
+        }
+        return Response(response_data, status=status.HTTP_201_CREATED)
 
 
 class EquipmentItemDetailView(generics.RetrieveUpdateDestroyAPIView):

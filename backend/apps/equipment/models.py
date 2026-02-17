@@ -123,7 +123,7 @@ class EquipmentItem(TimestampMixin, UUIDMixin):
         on_delete=models.PROTECT,
         related_name="items",
     )
-    serial_number = models.CharField(max_length=255, unique=True)
+    serial_number = models.CharField(max_length=255)
     internal_id = models.CharField(
         max_length=100,
         blank=True,
@@ -161,6 +161,10 @@ class EquipmentItem(TimestampMixin, UUIDMixin):
             models.Index(fields=["current_status"]),
         ]
         constraints = [
+            models.UniqueConstraint(
+                fields=["equipment_model", "serial_number"],
+                name="uniq_equipment_model_serial_number",
+            ),
             models.CheckConstraint(
                 check=(
                     models.Q(ownership_type="owned", rental_agreement__isnull=True)

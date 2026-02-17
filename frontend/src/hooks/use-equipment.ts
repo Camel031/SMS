@@ -6,6 +6,8 @@ import {
 } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import type {
+  EquipmentItemBatchCreatePayload,
+  EquipmentItemBatchCreateResponse,
   CategoryFormData,
   CustomFieldDefinition,
   CustomFieldFormData,
@@ -206,6 +208,23 @@ export function useCreateEquipmentItem() {
     mutationFn: async (payload: EquipmentItemFormData) => {
       const { data } = await api.post<EquipmentItem>(
         "/equipment/items/",
+        payload,
+      );
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["equipment-items"] });
+      qc.invalidateQueries({ queryKey: ["equipment-models"] });
+    },
+  });
+}
+
+export function useCreateEquipmentItemsBatch() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: EquipmentItemBatchCreatePayload) => {
+      const { data } = await api.post<EquipmentItemBatchCreateResponse>(
+        "/equipment/items/batch/",
         payload,
       );
       return data;

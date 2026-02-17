@@ -23,7 +23,6 @@ import {
   useCategoryTree,
   useCustomFields,
 } from "@/hooks/use-equipment";
-import { usePermission } from "@/hooks/use-auth";
 import type { EquipmentCategoryTree, CustomFieldDefinition } from "@/types/equipment";
 
 // ─── Zod schema ─────────────────────────────────────────────────────
@@ -70,7 +69,6 @@ export default function EquipmentModelFormPage() {
   const { uuid } = useParams<{ uuid: string }>();
   const isEdit = !!uuid;
   const navigate = useNavigate();
-  const perms = usePermission();
 
   // Queries
   const model = useEquipmentModel(uuid ?? "");
@@ -142,10 +140,18 @@ export default function EquipmentModelFormPage() {
 
     if (isEdit) {
       const result = await updateMutation.mutateAsync(payload);
-      navigate(`/equipment/models/${result.uuid}`);
+      if (result.uuid) {
+        navigate(`/equipment/models/${result.uuid}`);
+      } else {
+        navigate("/equipment");
+      }
     } else {
       const result = await createMutation.mutateAsync(payload);
-      navigate(`/equipment/models/${result.uuid}`);
+      if (result.uuid) {
+        navigate(`/equipment/models/${result.uuid}`);
+      } else {
+        navigate("/equipment");
+      }
     }
   };
 

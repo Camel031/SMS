@@ -2,6 +2,7 @@ import { useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import type { AxiosError } from "axios";
 import { useNavigate, useParams, useSearchParams, Link } from "react-router-dom";
 import { ArrowLeft, ChevronRight, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -19,19 +20,49 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   useEquipmentItem,
   useEquipmentModels,
-  useCreateEquipmentItem,
+  useCreateEquipmentItemsBatch,
   useUpdateEquipmentItem,
   useCustomFields,
 } from "@/hooks/use-equipment";
-import { usePermission } from "@/hooks/use-auth";
 import type { CustomFieldDefinition } from "@/types/equipment";
+
+function padThreeId(value: number): string {
+  return String(value).padStart(3, "0");
+}
+
+function getApiErrorMessage(error: unknown): string {
+  const fallback = "An error occurred. Please try again.";
+  const axiosErr = error as AxiosError<
+    | { detail?: string }
+    | Record<string, string[] | string>
+  >;
+  const data = axiosErr?.response?.data;
+
+  if (!data) return (axiosErr?.message as string) || fallback;
+  if (typeof data === "object" && "detail" in data && typeof data.detail === "string") {
+    return data.detail;
+  }
+
+  if (typeof data === "object") {
+    for (const value of Object.values(data)) {
+      if (Array.isArray(value) && value.length > 0) return String(value[0]);
+      if (typeof value === "string" && value.length > 0) return value;
+    }
+  }
+
+  return (axiosErr?.message as string) || fallback;
+}
 
 // ─── Zod schema ─────────────────────────────────────────────────────
 
 const equipmentItemSchema = z.object({
   equipment_model: z.string().min(1, "Equipment model is required"),
-  serial_number: z.string().min(1, "Serial number is required").max(200),
-  internal_id: z.string().max(200).optional().default(""),
+  serial_number: z.string().max(200).optional().default(""),
+  internal_id: z
+    .string()
+    .min(1, "Internal ID is required")
+    .regex(/^\d+$/, "Internal ID must be numeric"),
+  quantity: z.coerce.number().int().min(1).max(500).optional().default(1),
   ownership_type: z.enum(["owned", "rented_in"]).default("owned"),
   lamp_hours: z.coerce.number().int().min(0).optional().default(0),
   purchase_date: z.string().optional().default(""),
@@ -49,7 +80,6 @@ export default function EquipmentItemFormPage() {
   const [searchParams] = useSearchParams();
   const isEdit = !!uuid;
   const navigate = useNavigate();
-  const perms = usePermission();
 
   // For create mode, optionally pre-select model from ?model= query param
   const preselectedModelUuid = searchParams.get("model") ?? "";
@@ -60,7 +90,7 @@ export default function EquipmentItemFormPage() {
   const customFields = useCustomFields({ entity_type: "equipment_item" });
 
   // Mutations
-  const createMutation = useCreateEquipmentItem();
+  const createBatchMutation = useCreateEquipmentItemsBatch();
   const updateMutation = useUpdateEquipmentItem(uuid ?? "");
 
   // Build a lookup from uuid -> model id for pre-selection
@@ -87,6 +117,7 @@ export default function EquipmentItemFormPage() {
       equipment_model: "",
       serial_number: "",
       internal_id: "",
+      quantity: 1,
       ownership_type: "owned",
       lamp_hours: 0,
       purchase_date: "",
@@ -97,6 +128,16 @@ export default function EquipmentItemFormPage() {
   });
 
   const customFieldValues = watch("custom_fields");
+  const watchedInternalId = watch("internal_id");
+  const watchedQuantity = watch("quantity") ?? 1;
+  const normalizedQuantity = Number.isFinite(watchedQuantity)
+    ? Math.max(1, Math.floor(watchedQuantity))
+    : 1;
+  const hasValidStartId = /^\d+$/.test(watchedInternalId || "");
+  const previewStart = hasValidStartId ? padThreeId(Number(watchedInternalId)) : "";
+  const previewEnd = hasValidStartId
+    ? padThreeId(Number(watchedInternalId) + normalizedQuantity - 1)
+    : "";
 
   // Pre-select model from query param (create mode)
   useEffect(() => {
@@ -112,10 +153,14 @@ export default function EquipmentItemFormPage() {
   useEffect(() => {
     if (isEdit && item.data) {
       const it = item.data;
+      const normalizedExistingInternalId = /^\d+$/.test(it.internal_id || "")
+        ? String(Number(it.internal_id))
+        : "";
       reset({
         equipment_model: String(it.equipment_model),
         serial_number: it.serial_number,
-        internal_id: it.internal_id || "",
+        internal_id: normalizedExistingInternalId,
+        quantity: 1,
         ownership_type: it.ownership_type,
         lamp_hours: it.lamp_hours,
         purchase_date: it.purchase_date ?? "",
@@ -128,10 +173,10 @@ export default function EquipmentItemFormPage() {
 
   // Submit handler
   const onSubmit = async (values: EquipmentItemFormValues) => {
-    const payload = {
+    const normalizedStartId = String(Number(values.internal_id));
+    const commonPayload = {
       equipment_model: Number(values.equipment_model),
-      serial_number: values.serial_number,
-      internal_id: values.internal_id || undefined,
+      internal_id: padThreeId(Number(values.internal_id)),
       ownership_type: values.ownership_type,
       lamp_hours: values.lamp_hours,
       purchase_date: values.purchase_date || null,
@@ -141,15 +186,26 @@ export default function EquipmentItemFormPage() {
     };
 
     if (isEdit) {
-      const result = await updateMutation.mutateAsync(payload);
+      const result = await updateMutation.mutateAsync({
+        ...commonPayload,
+        serial_number: item.data?.serial_number,
+      });
       navigate(`/equipment/items/${result.uuid}`);
     } else {
-      const result = await createMutation.mutateAsync(payload);
-      navigate(`/equipment/items/${result.uuid}`);
+      const result = await createBatchMutation.mutateAsync({
+        ...commonPayload,
+        internal_id: normalizedStartId,
+        quantity: values.quantity,
+      });
+      if (result.count === 1 && result.items[0]) {
+        navigate(`/equipment/items/${result.items[0].uuid}`);
+      } else {
+        navigate("/equipment");
+      }
     }
   };
 
-  const isPending = createMutation.isPending || updateMutation.isPending;
+  const isPending = createBatchMutation.isPending || updateMutation.isPending;
 
   // Loading state for edit
   if (isEdit && item.isLoading) {
@@ -255,39 +311,87 @@ export default function EquipmentItemFormPage() {
             )}
           </div>
 
-          {/* Serial Number + Internal ID */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="serial_number">
-                Serial Number <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                id="serial_number"
-                placeholder="e.g. SN-2024-001"
-                className="font-mono"
-                {...register("serial_number")}
-              />
-              {errors.serial_number && (
-                <p className="text-xs text-destructive">
-                  {errors.serial_number.message}
+          {/* Serial / ID */}
+          {isEdit ? (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label>Serial Number</Label>
+                <Input
+                  value={item.data?.serial_number ?? ""}
+                  readOnly
+                  className="font-mono bg-muted/40"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="internal_id">
+                  Internal ID <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="internal_id"
+                  inputMode="numeric"
+                  placeholder="e.g. 001"
+                  className="font-mono"
+                  {...register("internal_id", {
+                    setValueAs: (v) => String(v ?? "").replace(/\D/g, ""),
+                  })}
+                />
+                {errors.internal_id && (
+                  <p className="text-xs text-destructive">
+                    {errors.internal_id.message}
+                  </p>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="internal_id">
+                  Start Internal ID <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="internal_id"
+                  inputMode="numeric"
+                  placeholder="e.g. 001"
+                  className="font-mono"
+                  {...register("internal_id", {
+                    setValueAs: (v) => String(v ?? "").replace(/\D/g, ""),
+                  })}
+                />
+                {errors.internal_id && (
+                  <p className="text-xs text-destructive">
+                    {errors.internal_id.message}
+                  </p>
+                )}
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="quantity">
+                  Quantity <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="quantity"
+                  type="number"
+                  min={1}
+                  step={1}
+                  className="w-40 font-mono"
+                  {...register("quantity", { valueAsNumber: true })}
+                />
+                {errors.quantity && (
+                  <p className="text-xs text-destructive">
+                    {errors.quantity.message}
+                  </p>
+                )}
+              </div>
+              {hasValidStartId && (
+                <p className="text-xs text-muted-foreground sm:col-span-2">
+                  Serial numbers will be auto-generated:{" "}
+                  <span className="font-mono text-foreground">
+                    {previewStart}
+                    {normalizedQuantity > 1 ? ` to ${previewEnd}` : ""}
+                  </span>
                 </p>
               )}
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="internal_id">Internal ID</Label>
-              <Input
-                id="internal_id"
-                placeholder="e.g. MH-001"
-                className="font-mono"
-                {...register("internal_id")}
-              />
-              {errors.internal_id && (
-                <p className="text-xs text-destructive">
-                  {errors.internal_id.message}
-                </p>
-              )}
-            </div>
-          </div>
+          )}
 
           {/* Ownership Type */}
           <div className="space-y-1.5">
@@ -405,11 +509,10 @@ export default function EquipmentItemFormPage() {
         )}
 
         {/* Error message */}
-        {(createMutation.isError || updateMutation.isError) && (
+        {(createBatchMutation.isError || updateMutation.isError) && (
           <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3">
             <p className="text-sm text-destructive">
-              {(createMutation.error || updateMutation.error)?.message ??
-                "An error occurred. Please try again."}
+              {getApiErrorMessage(createBatchMutation.error || updateMutation.error)}
             </p>
           </div>
         )}
@@ -429,7 +532,9 @@ export default function EquipmentItemFormPage() {
                 : "Creating..."
               : isEdit
                 ? "Save Changes"
-                : "Create Item"}
+                : normalizedQuantity > 1
+                  ? "Create Items"
+                  : "Create Item"}
           </Button>
         </div>
       </form>

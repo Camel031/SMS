@@ -124,6 +124,25 @@ export interface EquipmentItemFormData {
   is_active?: boolean;
 }
 
+export interface EquipmentItemBatchCreatePayload {
+  equipment_model: number;
+  internal_id: string;
+  quantity?: number;
+  ownership_type?: OwnershipType;
+  rental_agreement?: number | null;
+  lamp_hours?: number;
+  purchase_date?: string | null;
+  warranty_expiry?: string | null;
+  notes?: string;
+  custom_fields?: Record<string, unknown>;
+  is_active?: boolean;
+}
+
+export interface EquipmentItemBatchCreateResponse {
+  count: number;
+  items: EquipmentItem[];
+}
+
 // --- Status Log ---
 
 export interface EquipmentStatusLog {

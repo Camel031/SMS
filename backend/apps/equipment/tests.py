@@ -144,6 +144,17 @@ class EquipmentModelAPITest(EquipmentTestBase):
         })
         self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
 
+    def test_create_model_returns_uuid(self):
+        self.login_admin()
+        resp = self.client.post("/api/v1/equipment/models/", {
+            "name": "Astra Wash",
+            "brand": "Robe",
+            "category": self.category.id,
+        })
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+        self.assertIn("uuid", resp.data)
+        self.assertTrue(resp.data["uuid"])
+
     def test_model_detail_includes_counts(self):
         self.login_viewer()
         resp = self.client.get(f"/api/v1/equipment/models/{self.model.uuid}/")
@@ -277,6 +288,95 @@ class EquipmentItemAPITest(EquipmentTestBase):
         self.assertEqual(resp.data["count"], 2)
         serials = {row["serial_number"] for row in resp.data["results"]}
         self.assertEqual(serials, {"SN-001", "SN-CHILD-001"})
+
+    def test_batch_create_items_auto_generates_three_digit_ids(self):
+        self.login_admin()
+        resp = self.client.post(
+            "/api/v1/equipment/items/batch/",
+            {
+                "equipment_model": self.model.id,
+                "internal_id": "1",
+                "quantity": 3,
+                "lamp_hours": 120,
+            },
+            format="json",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(resp.data["count"], 3)
+        self.assertEqual(len(resp.data["items"]), 3)
+
+        created = EquipmentItem.objects.filter(serial_number__in=["001", "002", "003"]).order_by("serial_number")
+        self.assertEqual(created.count(), 3)
+        self.assertEqual(list(created.values_list("serial_number", flat=True)), ["001", "002", "003"])
+        self.assertEqual(list(created.values_list("internal_id", flat=True)), ["001", "002", "003"])
+        self.assertEqual(set(created.values_list("lamp_hours", flat=True)), {120})
+        self.assertEqual(
+            EquipmentStatusLog.objects.filter(
+                equipment_item__in=created,
+                action=EquipmentStatusLog.Action.REGISTER,
+            ).count(),
+            3,
+        )
+
+    def test_batch_create_requires_numeric_internal_id(self):
+        self.login_admin()
+        resp = self.client.post(
+            "/api/v1/equipment/items/batch/",
+            {
+                "equipment_model": self.model.id,
+                "internal_id": "A01",
+                "quantity": 2,
+            },
+            format="json",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("internal_id", resp.data)
+
+    def test_batch_create_fails_atomically_on_duplicate_serial(self):
+        self.login_admin()
+        EquipmentItem.objects.create(
+            equipment_model=self.model,
+            serial_number="003",
+            internal_id="003",
+        )
+        resp = self.client.post(
+            "/api/v1/equipment/items/batch/",
+            {
+                "equipment_model": self.model.id,
+                "internal_id": "2",
+                "quantity": 3,
+            },
+            format="json",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(EquipmentItem.objects.filter(serial_number="002").exists())
+        self.assertFalse(EquipmentItem.objects.filter(serial_number="004").exists())
+
+    def test_batch_create_allows_same_serial_range_for_different_model(self):
+        self.login_admin()
+        another_model = EquipmentModel.objects.create(
+            name="Acme Strobe-2304",
+            category=self.category,
+            is_numbered=True,
+        )
+        EquipmentItem.objects.create(
+            equipment_model=self.model,
+            serial_number="001",
+            internal_id="001",
+        )
+
+        resp = self.client.post(
+            "/api/v1/equipment/items/batch/",
+            {
+                "equipment_model": another_model.id,
+                "internal_id": "1",
+                "quantity": 2,
+            },
+            format="json",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+        created = EquipmentItem.objects.filter(equipment_model=another_model).order_by("serial_number")
+        self.assertEqual(list(created.values_list("serial_number", flat=True)), ["001", "002"])
 
 
 # ─── Item History Tests ──────────────────────────────────────────────

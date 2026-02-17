@@ -122,6 +122,8 @@ class EquipmentModelCreateUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = EquipmentModel
         fields = [
+            "id",
+            "uuid",
             "name",
             "brand",
             "model_number",
@@ -133,6 +135,7 @@ class EquipmentModelCreateUpdateSerializer(serializers.ModelSerializer):
             "custom_fields",
             "is_active",
         ]
+        read_only_fields = ["id", "uuid"]
 
     def validate(self, attrs):
         is_numbered = attrs.get("is_numbered", self.instance.is_numbered if self.instance else True)
@@ -247,6 +250,56 @@ class EquipmentItemCreateUpdateSerializer(serializers.ModelSerializer):
             "equipment_model",
             self.instance.equipment_model if self.instance else None,
         )
+        if model and not model.is_numbered:
+            raise serializers.ValidationError(
+                {"equipment_model": "Cannot create individual items for unnumbered equipment."}
+            )
+        return attrs
+
+
+class EquipmentItemBatchCreateSerializer(serializers.ModelSerializer):
+    quantity = serializers.IntegerField(
+        min_value=1,
+        max_value=500,
+        required=False,
+        default=1,
+        write_only=True,
+    )
+    internal_id = serializers.RegexField(
+        regex=r"^\d+$",
+        max_length=100,
+        required=True,
+        help_text="Starting internal ID (digits only).",
+    )
+
+    class Meta:
+        model = EquipmentItem
+        fields = [
+            "equipment_model",
+            "internal_id",
+            "quantity",
+            "ownership_type",
+            "rental_agreement",
+            "lamp_hours",
+            "purchase_date",
+            "warranty_expiry",
+            "notes",
+            "custom_fields",
+            "is_active",
+        ]
+
+    def validate(self, attrs):
+        ownership = attrs.get("ownership_type", EquipmentItem.OwnershipType.OWNED)
+        rental = attrs.get("rental_agreement")
+        if ownership == EquipmentItem.OwnershipType.OWNED and rental is not None:
+            raise serializers.ValidationError(
+                {"rental_agreement": "Owned equipment cannot have a rental agreement."}
+            )
+        if ownership == EquipmentItem.OwnershipType.RENTED_IN and rental is None:
+            raise serializers.ValidationError(
+                {"rental_agreement": "Rented-in equipment must have a rental agreement."}
+            )
+        model = attrs.get("equipment_model")
         if model and not model.is_numbered:
             raise serializers.ValidationError(
                 {"equipment_model": "Cannot create individual items for unnumbered equipment."}
