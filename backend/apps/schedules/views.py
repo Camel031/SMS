@@ -158,7 +158,11 @@ class ScheduleEquipmentDetailView(generics.RetrieveUpdateDestroyAPIView):
 
     def update(self, request, *args, **kwargs):
         allocation = self.get_object()
-        serializer = ScheduleEquipmentCreateUpdateSerializer(data=request.data, partial=kwargs.get("partial", False))
+        serializer = ScheduleEquipmentCreateUpdateSerializer(
+            allocation,
+            data=request.data,
+            partial=kwargs.get("partial", False),
+        )
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
 

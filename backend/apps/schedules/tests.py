@@ -389,6 +389,30 @@ class ScheduleEquipmentTests(ScheduleTestBase):
         allocation.refresh_from_db()
         self.assertEqual(allocation.quantity_planned, 8)
 
+    def test_patch_planned_items_without_equipment_model_uuid(self):
+        """PATCH planned_item_uuids only, verify assignment works."""
+        schedule = self._create_schedule_obj()
+        allocation = ScheduleEquipment.objects.create(
+            schedule=schedule,
+            equipment_model=self.eq_model,
+            quantity_planned=1,
+        )
+        item = EquipmentItem.objects.create(
+            equipment_model=self.eq_model,
+            serial_number="SN-PATCH-PLANNED-001",
+        )
+
+        resp = self.client.patch(
+            f"/api/v1/schedules/{schedule.uuid}/equipment/{allocation.pk}/",
+            {"planned_item_uuids": [str(item.uuid)]},
+            format="json",
+        )
+
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        allocation.refresh_from_db()
+        self.assertEqual(allocation.planned_items.count(), 1)
+        self.assertEqual(allocation.planned_items.first().uuid, item.uuid)
+
     def test_remove_equipment(self):
         """DELETE /schedules/{uuid}/equipment/{pk}/, verify 204."""
         schedule = self._create_schedule_obj()

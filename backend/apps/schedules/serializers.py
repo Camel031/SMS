@@ -166,7 +166,9 @@ class ScheduleEquipmentCreateUpdateSerializer(serializers.Serializer):
 
     def validate(self, attrs):
         attrs = super().validate(attrs)
-        equipment_model = self._equipment_model
+        equipment_model = getattr(self, "_equipment_model", None)
+        if equipment_model is None and self.instance is not None:
+            equipment_model = self.instance.equipment_model
         planned_item_uuids = attrs.get("planned_item_uuids", [])
 
         if planned_item_uuids:
