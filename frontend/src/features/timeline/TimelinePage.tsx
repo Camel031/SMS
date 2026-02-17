@@ -3,6 +3,13 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { QueryRefreshIndicator } from "@/components/ui/query-refresh-indicator";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useTimelineData } from "@/hooks/use-timeline";
 import { useCategories } from "@/hooks/use-equipment";
 import { getQueryLoadState } from "@/lib/query-load-state";
@@ -93,18 +100,22 @@ export default function TimelinePage() {
 
         {/* Category filter */}
         {categories && categories.results && categories.results.length > 0 && (
-          <select
-            className="h-8 rounded-md border border-border bg-card px-2 text-xs text-foreground"
-            value={categoryUuid}
-            onChange={(e) => setCategoryUuid(e.target.value)}
+          <Select
+            value={categoryUuid || "all"}
+            onValueChange={(v) => setCategoryUuid(v === "all" ? "" : v)}
           >
-            <option value="">All Categories</option>
-            {categories.results.map((cat: { uuid: string; name: string }) => (
-              <option key={cat.uuid} value={cat.uuid}>
-                {cat.name}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger className="w-40 h-8 text-sm">
+              <SelectValue placeholder="Category" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Categories</SelectItem>
+              {categories.results.map((cat: { uuid: string; name: string }) => (
+                <SelectItem key={cat.uuid} value={cat.uuid}>
+                  {cat.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         )}
 
         {/* Drafts toggle */}
