@@ -71,6 +71,7 @@ export default function App() {
             <Route path="schedules" element={<ScheduleListPage />} />
             <Route path="schedules/new" element={<ScheduleFormPage />} />
             <Route path="schedules/:uuid" element={<ScheduleDetailPage />} />
+            <Route path="schedules/:uuid/equipment/add" element={<ScheduleDetailPage />} />
             <Route path="schedules/:uuid/edit" element={<ScheduleFormPage />} />
             {/* Rentals */}
             <Route path="rentals" element={<RentalListPage />} />

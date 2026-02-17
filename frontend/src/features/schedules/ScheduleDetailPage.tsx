@@ -1,5 +1,5 @@
-import { Fragment, useState } from "react";
-import { Link, useParams, useNavigate } from "react-router-dom";
+import { Fragment, useEffect, useState } from "react";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
   Edit,
@@ -37,6 +37,7 @@ import {
   useDeleteScheduleEquipment,
 } from "@/hooks/use-schedules";
 import { usePermission } from "@/hooks/use-auth";
+import { EquipmentSelector } from "@/features/schedules/EquipmentSelector";
 import { NumberedItemPicker } from "@/features/schedules/NumberedItemPicker";
 import type { ScheduleType, ScheduleStatus } from "@/types/schedule";
 import { toast } from "sonner";
@@ -90,6 +91,7 @@ function relativeTime(dateStr: string): string {
 
 export default function ScheduleDetailPage() {
   const { uuid } = useParams<{ uuid: string }>();
+  const location = useLocation();
   const navigate = useNavigate();
   const schedule = useSchedule(uuid ?? "");
   const equipment = useScheduleEquipment(uuid ?? "");
@@ -101,6 +103,31 @@ export default function ScheduleDetailPage() {
   const reopenMutation = useReopenSchedule(uuid ?? "");
   const deleteEquipmentMutation = useDeleteScheduleEquipment(uuid ?? "");
   const [expandedAllocId, setExpandedAllocId] = useState<number | null>(null);
+  const isAddEquipmentRoute = location.pathname.endsWith("/equipment/add");
+  const canManageScheduleEquipment = !!schedule.data &&
+    perms.canManageSchedules &&
+    schedule.data.status !== "completed" &&
+    schedule.data.status !== "cancelled";
+  const existingModelUuids =
+    equipment.data?.map((alloc) => alloc.equipment_model.uuid) ?? [];
+
+  useEffect(() => {
+    if (
+      !schedule.isLoading &&
+      isAddEquipmentRoute &&
+      (!schedule.data || !canManageScheduleEquipment) &&
+      uuid
+    ) {
+      navigate(`/schedules/${uuid}`, { replace: true });
+    }
+  }, [
+    schedule.isLoading,
+    schedule.data,
+    isAddEquipmentRoute,
+    canManageScheduleEquipment,
+    navigate,
+    uuid,
+  ]);
 
   if (schedule.isLoading) {
     return <DetailSkeleton />;
@@ -118,6 +145,15 @@ export default function ScheduleDetailPage() {
   const s = schedule.data;
   const typeCfg = TYPE_CONFIG[s.schedule_type];
   const statusCfg = STATUS_CONFIG[s.status];
+
+  const handleEquipmentSelectorOpenChange = (open: boolean) => {
+    if (!uuid) return;
+    if (open) {
+      navigate(`/schedules/${uuid}/equipment/add`);
+      return;
+    }
+    navigate(`/schedules/${uuid}`, { replace: true });
+  };
 
   const handleConfirm = () => {
     confirmMutation.mutate(undefined, {
@@ -354,9 +390,7 @@ export default function ScheduleDetailPage() {
         {/* ── Equipment Tab ──────────────────────────────────────────── */}
         <TabsContent value="equipment">
           <div className="space-y-3">
-            {perms.canManageSchedules &&
-              s.status !== "completed" &&
-              s.status !== "cancelled" && (
+            {canManageScheduleEquipment && (
                 <div className="flex justify-end">
                   <Button size="sm" asChild>
                     <Link to={`/schedules/${uuid}/equipment/add`}>
@@ -390,7 +424,7 @@ export default function ScheduleDetailPage() {
                     {equipment.data.map((alloc) => {
                       const isExpanded = expandedAllocId === alloc.id;
                       const isNumbered = alloc.equipment_model.is_numbered;
-                      const canEdit = perms.canManageSchedules && s.status !== "completed" && s.status !== "cancelled";
+                      const canEdit = canManageScheduleEquipment;
                       return (
                         <Fragment key={alloc.id}>
                           <TableRow>
@@ -619,6 +653,17 @@ export default function ScheduleDetailPage() {
           )}
         </TabsContent>
       </Tabs>
+
+      {uuid && (
+        <EquipmentSelector
+          scheduleUuid={uuid}
+          startDatetime={s.start_datetime}
+          endDatetime={s.end_datetime}
+          open={isAddEquipmentRoute}
+          onOpenChange={handleEquipmentSelectorOpenChange}
+          existingModelUuids={existingModelUuids}
+        />
+      )}
     </div>
   );
 }
