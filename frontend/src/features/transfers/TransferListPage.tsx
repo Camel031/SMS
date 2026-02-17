@@ -523,7 +523,7 @@ function TransferDetailInline({ uuid }: { uuid: string }) {
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {item.equipment_item
-                      ? item.equipment_item.serial_number
+                      ? item.equipment_item.internal_id
                       : "\u2014"}
                   </TableCell>
                   <TableCell className="text-right font-mono text-sm">

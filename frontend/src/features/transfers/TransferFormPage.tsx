@@ -82,7 +82,7 @@ export default function TransferFormPage() {
       equipment_model_uuid: "", // Will need to be resolved
       equipment_model_name: record.equipment_model_name,
       equipment_item_uuid: record.equipment_item?.uuid,
-      equipment_item_label: record.equipment_item?.serial_number,
+      equipment_item_label: record.equipment_item?.internal_id,
       quantity: record.equipment_item ? 1 : record.quantity_still_out,
       notes: "",
     };
@@ -229,7 +229,7 @@ export default function TransferFormPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Equipment</TableHead>
-                      <TableHead>Serial Number</TableHead>
+                      <TableHead>Internal ID</TableHead>
                       <TableHead className="text-right">Qty Out</TableHead>
                       <TableHead className="w-20" />
                     </TableRow>
@@ -241,7 +241,7 @@ export default function TransferFormPage() {
                           {record.equipment_model_name}
                         </TableCell>
                         <TableCell className="font-mono text-sm text-muted-foreground">
-                          {record.equipment_item?.serial_number ?? "\u2014"}
+                          {record.equipment_item?.internal_id ?? "\u2014"}
                         </TableCell>
                         <TableCell className="text-right font-mono text-sm">
                           {record.quantity_still_out}
@@ -280,7 +280,7 @@ export default function TransferFormPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Equipment</TableHead>
-                    <TableHead>Serial Number</TableHead>
+                    <TableHead>Internal ID</TableHead>
                     <TableHead className="text-right">Qty</TableHead>
                     <TableHead>Notes</TableHead>
                     <TableHead className="w-10" />

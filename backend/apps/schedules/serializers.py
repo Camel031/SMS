@@ -75,7 +75,7 @@ class CheckoutRecordSerializer(serializers.ModelSerializer):
             return None
         return {
             "uuid": obj.equipment_item.uuid,
-            "serial_number": obj.equipment_item.serial_number,
+            "internal_id": obj.equipment_item.internal_id,
         }
 
     def get_equipment_model_name(self, obj) -> str:
@@ -120,7 +120,7 @@ class ScheduleEquipmentSerializer(serializers.ModelSerializer):
 
     def get_planned_items(self, obj):
         return list(
-            obj.planned_items.values("uuid", "serial_number")
+            obj.planned_items.values("uuid", "internal_id")
         )
 
     def get_quantity_checked_out(self, obj) -> int:

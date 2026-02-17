@@ -58,7 +58,7 @@ class TransactionLineItemSerializer(serializers.ModelSerializer):
             return None
         return {
             "uuid": obj.equipment_item.uuid,
-            "serial_number": obj.equipment_item.serial_number,
+            "internal_id": obj.equipment_item.internal_id,
             "current_status": obj.equipment_item.current_status,
         }
 

@@ -123,10 +123,8 @@ class EquipmentItem(TimestampMixin, UUIDMixin):
         on_delete=models.PROTECT,
         related_name="items",
     )
-    serial_number = models.CharField(max_length=255)
     internal_id = models.CharField(
         max_length=100,
-        blank=True,
         help_text="Internal company identifier.",
     )
     ownership_type = models.CharField(
@@ -155,15 +153,15 @@ class EquipmentItem(TimestampMixin, UUIDMixin):
     is_active = models.BooleanField(default=True)
 
     class Meta:
-        ordering = ["equipment_model", "serial_number"]
+        ordering = ["equipment_model", "internal_id"]
         indexes = [
             models.Index(fields=["equipment_model", "current_status"]),
             models.Index(fields=["current_status"]),
         ]
         constraints = [
             models.UniqueConstraint(
-                fields=["equipment_model", "serial_number"],
-                name="uniq_equipment_model_serial_number",
+                fields=["equipment_model", "internal_id"],
+                name="uniq_equipment_model_internal_id",
             ),
             models.CheckConstraint(
                 check=(
@@ -177,7 +175,7 @@ class EquipmentItem(TimestampMixin, UUIDMixin):
         ]
 
     def __str__(self) -> str:
-        return f"{self.equipment_model} [{self.serial_number}]"
+        return f"{self.equipment_model} [{self.internal_id}]"
 
 
 class EquipmentStatusLog(TimestampMixin):

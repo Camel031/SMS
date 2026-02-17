@@ -57,11 +57,11 @@ class RentalTestBase(TestCase):
         defaults.update(overrides)
         return RentalAgreement.objects.create(**defaults)
 
-    def _create_rented_item(self, agreement, serial_number="R-001"):
+    def _create_rented_item(self, agreement, internal_id="R-001"):
         """Create a rented-in equipment item with pending_receipt status."""
         item = EquipmentItem.objects.create(
             equipment_model=self.eq_model,
-            serial_number=serial_number,
+            internal_id=internal_id,
             ownership_type=EquipmentItem.OwnershipType.RENTED_IN,
             rental_agreement=agreement,
             current_status=EquipmentItem.Status.PENDING_RECEIPT,

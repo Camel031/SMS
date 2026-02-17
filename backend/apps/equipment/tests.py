@@ -45,8 +45,7 @@ class EquipmentTestBase(TestCase):
         )
         self.item = EquipmentItem.objects.create(
             equipment_model=self.model,
-            serial_number="SN-001",
-            internal_id="INT-001",
+            internal_id="001",
         )
 
     def login_admin(self):
@@ -214,10 +213,10 @@ class EquipmentItemAPITest(EquipmentTestBase):
         self.login_admin()
         resp = self.client.post("/api/v1/equipment/items/", {
             "equipment_model": self.model.id,
-            "serial_number": "SN-002",
+            "internal_id": "002",
         })
         self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
-        new_item = EquipmentItem.objects.get(serial_number="SN-002")
+        new_item = EquipmentItem.objects.get(internal_id="002")
         self.assertEqual(new_item.current_status, EquipmentItem.Status.AVAILABLE)
         self.assertTrue(
             EquipmentStatusLog.objects.filter(
@@ -230,7 +229,7 @@ class EquipmentItemAPITest(EquipmentTestBase):
         self.login_viewer()
         resp = self.client.post("/api/v1/equipment/items/", {
             "equipment_model": self.model.id,
-            "serial_number": "SN-002",
+            "internal_id": "002",
         })
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
@@ -238,7 +237,8 @@ class EquipmentItemAPITest(EquipmentTestBase):
         self.login_viewer()
         resp = self.client.get(f"/api/v1/equipment/items/{self.item.uuid}/")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
-        self.assertEqual(resp.data["serial_number"], "SN-001")
+        self.assertEqual(resp.data["internal_id"], "001")
+        self.assertNotIn("serial_number", resp.data)
 
     def test_item_rejects_unnumbered_model(self):
         self.login_admin()
@@ -250,7 +250,7 @@ class EquipmentItemAPITest(EquipmentTestBase):
         )
         resp = self.client.post("/api/v1/equipment/items/", {
             "equipment_model": unnumbered.id,
-            "serial_number": "CABLE-001",
+            "internal_id": "001",
         })
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
 
@@ -263,7 +263,7 @@ class EquipmentItemAPITest(EquipmentTestBase):
 
     def test_search_items(self):
         self.login_viewer()
-        resp = self.client.get("/api/v1/equipment/items/?search=SN-001")
+        resp = self.client.get("/api/v1/equipment/items/?search=001")
         self.assertEqual(resp.data["count"], 1)
 
     def test_filter_items_by_parent_category_includes_descendants(self):
@@ -278,7 +278,7 @@ class EquipmentItemAPITest(EquipmentTestBase):
         )
         EquipmentItem.objects.create(
             equipment_model=child_model,
-            serial_number="SN-CHILD-001",
+            internal_id="010",
         )
 
         resp = self.client.get(
@@ -286,8 +286,8 @@ class EquipmentItemAPITest(EquipmentTestBase):
         )
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.assertEqual(resp.data["count"], 2)
-        serials = {row["serial_number"] for row in resp.data["results"]}
-        self.assertEqual(serials, {"SN-001", "SN-CHILD-001"})
+        internal_ids = {row["internal_id"] for row in resp.data["results"]}
+        self.assertEqual(internal_ids, {"001", "010"})
 
     def test_batch_create_items_auto_generates_three_digit_ids(self):
         self.login_admin()
@@ -295,7 +295,7 @@ class EquipmentItemAPITest(EquipmentTestBase):
             "/api/v1/equipment/items/batch/",
             {
                 "equipment_model": self.model.id,
-                "internal_id": "1",
+                "internal_id": "2",
                 "quantity": 3,
                 "lamp_hours": 120,
             },
@@ -305,10 +305,9 @@ class EquipmentItemAPITest(EquipmentTestBase):
         self.assertEqual(resp.data["count"], 3)
         self.assertEqual(len(resp.data["items"]), 3)
 
-        created = EquipmentItem.objects.filter(serial_number__in=["001", "002", "003"]).order_by("serial_number")
+        created = EquipmentItem.objects.filter(internal_id__in=["002", "003", "004"]).order_by("internal_id")
         self.assertEqual(created.count(), 3)
-        self.assertEqual(list(created.values_list("serial_number", flat=True)), ["001", "002", "003"])
-        self.assertEqual(list(created.values_list("internal_id", flat=True)), ["001", "002", "003"])
+        self.assertEqual(list(created.values_list("internal_id", flat=True)), ["002", "003", "004"])
         self.assertEqual(set(created.values_list("lamp_hours", flat=True)), {120})
         self.assertEqual(
             EquipmentStatusLog.objects.filter(
@@ -332,11 +331,10 @@ class EquipmentItemAPITest(EquipmentTestBase):
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("internal_id", resp.data)
 
-    def test_batch_create_fails_atomically_on_duplicate_serial(self):
+    def test_batch_create_fails_atomically_on_duplicate_internal_id(self):
         self.login_admin()
         EquipmentItem.objects.create(
             equipment_model=self.model,
-            serial_number="003",
             internal_id="003",
         )
         resp = self.client.post(
@@ -349,10 +347,10 @@ class EquipmentItemAPITest(EquipmentTestBase):
             format="json",
         )
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertFalse(EquipmentItem.objects.filter(serial_number="002").exists())
-        self.assertFalse(EquipmentItem.objects.filter(serial_number="004").exists())
+        self.assertFalse(EquipmentItem.objects.filter(internal_id="002").exists())
+        self.assertFalse(EquipmentItem.objects.filter(internal_id="004").exists())
 
-    def test_batch_create_allows_same_serial_range_for_different_model(self):
+    def test_batch_create_allows_same_internal_id_range_for_different_model(self):
         self.login_admin()
         another_model = EquipmentModel.objects.create(
             name="Acme Strobe-2304",
@@ -361,8 +359,7 @@ class EquipmentItemAPITest(EquipmentTestBase):
         )
         EquipmentItem.objects.create(
             equipment_model=self.model,
-            serial_number="001",
-            internal_id="001",
+            internal_id="099",
         )
 
         resp = self.client.post(
@@ -375,8 +372,8 @@ class EquipmentItemAPITest(EquipmentTestBase):
             format="json",
         )
         self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
-        created = EquipmentItem.objects.filter(equipment_model=another_model).order_by("serial_number")
-        self.assertEqual(list(created.values_list("serial_number", flat=True)), ["001", "002"])
+        created = EquipmentItem.objects.filter(equipment_model=another_model).order_by("internal_id")
+        self.assertEqual(list(created.values_list("internal_id", flat=True)), ["001", "002"])
 
 
 # ─── Item History Tests ──────────────────────────────────────────────
@@ -511,7 +508,7 @@ class EquipmentStatusServiceTest(EquipmentTestBase):
     def test_register_owned_item(self):
         new_item = EquipmentItem.objects.create(
             equipment_model=self.model,
-            serial_number="SN-REG",
+            internal_id="SN-REG",
             ownership_type=EquipmentItem.OwnershipType.OWNED,
         )
         log = EquipmentStatusService.register(new_item, self.admin)
@@ -804,8 +801,8 @@ class BatchImportAPITest(EquipmentTestBase):
     def test_validate_mode_returns_preview(self):
         self.login_admin()
         csv_file = self._make_csv([
-            {"equipment_model_uuid": str(self.model.uuid), "serial_number": "IMP-001"},
-            {"equipment_model_uuid": str(self.model.uuid), "serial_number": "IMP-002"},
+            {"equipment_model_uuid": str(self.model.uuid), "internal_id": "2"},
+            {"equipment_model_uuid": str(self.model.uuid), "internal_id": "3"},
         ])
         resp = self.client.post(
             "/api/v1/equipment/batch-import/",
@@ -816,13 +813,13 @@ class BatchImportAPITest(EquipmentTestBase):
         self.assertEqual(resp.data["valid_count"], 2)
         self.assertEqual(resp.data["error_count"], 0)
         # No items created in validate mode
-        self.assertFalse(EquipmentItem.objects.filter(serial_number="IMP-001").exists())
+        self.assertFalse(EquipmentItem.objects.filter(internal_id="002").exists())
 
     def test_confirm_mode_creates_items(self):
         self.login_admin()
         csv_file = self._make_csv([
-            {"equipment_model_uuid": str(self.model.uuid), "serial_number": "IMP-001"},
-            {"equipment_model_uuid": str(self.model.uuid), "serial_number": "IMP-002"},
+            {"equipment_model_uuid": str(self.model.uuid), "internal_id": "2"},
+            {"equipment_model_uuid": str(self.model.uuid), "internal_id": "3"},
         ])
         resp = self.client.post(
             "/api/v1/equipment/batch-import/?confirm=true",
@@ -831,19 +828,19 @@ class BatchImportAPITest(EquipmentTestBase):
         )
         self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
         self.assertEqual(resp.data["created"], 2)
-        self.assertTrue(EquipmentItem.objects.filter(serial_number="IMP-001").exists())
+        self.assertTrue(EquipmentItem.objects.filter(internal_id="002").exists())
         # Verify status log was created
-        item = EquipmentItem.objects.get(serial_number="IMP-001")
+        item = EquipmentItem.objects.get(internal_id="002")
         self.assertTrue(
             EquipmentStatusLog.objects.filter(
                 equipment_item=item, action="register"
             ).exists()
         )
 
-    def test_duplicate_serial_rejected(self):
+    def test_duplicate_internal_id_rejected(self):
         self.login_admin()
         csv_file = self._make_csv([
-            {"equipment_model_uuid": str(self.model.uuid), "serial_number": "SN-001"},
+            {"equipment_model_uuid": str(self.model.uuid), "internal_id": "1"},
         ])
         resp = self.client.post(
             "/api/v1/equipment/batch-import/",
@@ -853,11 +850,11 @@ class BatchImportAPITest(EquipmentTestBase):
         self.assertEqual(resp.data["error_count"], 1)
         self.assertIn("already exists", resp.data["errors"][0]["errors"][0])
 
-    def test_duplicate_within_csv_rejected(self):
+    def test_duplicate_internal_id_within_csv_rejected(self):
         self.login_admin()
         csv_file = self._make_csv([
-            {"equipment_model_uuid": str(self.model.uuid), "serial_number": "NEW-001"},
-            {"equipment_model_uuid": str(self.model.uuid), "serial_number": "NEW-001"},
+            {"equipment_model_uuid": str(self.model.uuid), "internal_id": "999"},
+            {"equipment_model_uuid": str(self.model.uuid), "internal_id": "999"},
         ])
         resp = self.client.post(
             "/api/v1/equipment/batch-import/",
@@ -885,7 +882,7 @@ class BatchImportAPITest(EquipmentTestBase):
     def test_import_requires_permission(self):
         self.login_viewer()
         csv_file = self._make_csv([
-            {"equipment_model_uuid": str(self.model.uuid), "serial_number": "IMP-001"},
+            {"equipment_model_uuid": str(self.model.uuid), "internal_id": "1"},
         ])
         resp = self.client.post(
             "/api/v1/equipment/batch-import/",

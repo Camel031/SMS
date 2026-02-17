@@ -311,7 +311,6 @@ export default function EquipmentPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Serial #</TableHead>
                       <TableHead>Internal ID</TableHead>
                       <TableHead>Model</TableHead>
                       <TableHead>Category</TableHead>
@@ -330,11 +329,8 @@ export default function EquipmentPage() {
                               to={`/equipment/items/${item.uuid}`}
                               className="font-mono text-sm font-medium text-foreground hover:text-primary transition-colors"
                             >
-                              {item.serial_number}
+                              {item.internal_id}
                             </Link>
-                          </TableCell>
-                          <TableCell className="font-mono text-sm text-muted-foreground">
-                            {item.internal_id || "—"}
                           </TableCell>
                           <TableCell>
                             {item.model_brand && (

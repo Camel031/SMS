@@ -87,7 +87,6 @@ export type OwnershipType = "owned" | "rented_in";
 export interface EquipmentItem {
   id: number;
   uuid: string;
-  serial_number: string;
   internal_id: string;
   equipment_model: number;
   model_name: string;
@@ -112,7 +111,6 @@ export interface EquipmentItemDetail extends EquipmentItem {
 
 export interface EquipmentItemFormData {
   equipment_model: number;
-  serial_number: string;
   internal_id?: string;
   ownership_type?: OwnershipType;
   rental_agreement?: number | null;

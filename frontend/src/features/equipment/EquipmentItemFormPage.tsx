@@ -57,18 +57,17 @@ function getApiErrorMessage(error: unknown): string {
 
 const equipmentItemSchema = z.object({
   equipment_model: z.string().min(1, "Equipment model is required"),
-  serial_number: z.string().max(200).optional().default(""),
   internal_id: z
     .string()
     .min(1, "Internal ID is required")
     .regex(/^\d+$/, "Internal ID must be numeric"),
-  quantity: z.coerce.number().int().min(1).max(500).optional().default(1),
-  ownership_type: z.enum(["owned", "rented_in"]).default("owned"),
-  lamp_hours: z.coerce.number().int().min(0).optional().default(0),
-  purchase_date: z.string().optional().default(""),
-  warranty_expiry: z.string().optional().default(""),
-  notes: z.string().optional().default(""),
-  custom_fields: z.record(z.unknown()).optional().default({}),
+  quantity: z.coerce.number().int().min(1).max(500),
+  ownership_type: z.enum(["owned", "rented_in"]),
+  lamp_hours: z.coerce.number().int().min(0),
+  purchase_date: z.string().optional(),
+  warranty_expiry: z.string().optional(),
+  notes: z.string().optional(),
+  custom_fields: z.record(z.unknown()),
 });
 
 type EquipmentItemFormValues = z.infer<typeof equipmentItemSchema>;
@@ -115,7 +114,6 @@ export default function EquipmentItemFormPage() {
     resolver: zodResolver(equipmentItemSchema),
     defaultValues: {
       equipment_model: "",
-      serial_number: "",
       internal_id: "",
       quantity: 1,
       ownership_type: "owned",
@@ -158,7 +156,6 @@ export default function EquipmentItemFormPage() {
         : "";
       reset({
         equipment_model: String(it.equipment_model),
-        serial_number: it.serial_number,
         internal_id: normalizedExistingInternalId,
         quantity: 1,
         ownership_type: it.ownership_type,
@@ -186,10 +183,7 @@ export default function EquipmentItemFormPage() {
     };
 
     if (isEdit) {
-      const result = await updateMutation.mutateAsync({
-        ...commonPayload,
-        serial_number: item.data?.serial_number,
-      });
+      const result = await updateMutation.mutateAsync(commonPayload);
       navigate(`/equipment/items/${result.uuid}`);
     } else {
       const result = await createBatchMutation.mutateAsync({
@@ -238,7 +232,7 @@ export default function EquipmentItemFormPage() {
               to={`/equipment/items/${uuid}`}
               className="hover:text-foreground transition-colors"
             >
-              {item.data?.serial_number}
+              {item.data?.internal_id}
             </Link>
             <ChevronRight className="h-3.5 w-3.5" />
             <span className="text-foreground">Edit</span>
@@ -311,36 +305,26 @@ export default function EquipmentItemFormPage() {
             )}
           </div>
 
-          {/* Serial / ID */}
+          {/* Internal ID */}
           {isEdit ? (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label>Serial Number</Label>
-                <Input
-                  value={item.data?.serial_number ?? ""}
-                  readOnly
-                  className="font-mono bg-muted/40"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="internal_id">
-                  Internal ID <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  id="internal_id"
-                  inputMode="numeric"
-                  placeholder="e.g. 001"
-                  className="font-mono"
-                  {...register("internal_id", {
-                    setValueAs: (v) => String(v ?? "").replace(/\D/g, ""),
-                  })}
-                />
-                {errors.internal_id && (
-                  <p className="text-xs text-destructive">
-                    {errors.internal_id.message}
-                  </p>
-                )}
-              </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="internal_id">
+                Internal ID <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="internal_id"
+                inputMode="numeric"
+                placeholder="e.g. 001"
+                className="w-48 font-mono"
+                {...register("internal_id", {
+                  setValueAs: (v) => String(v ?? "").replace(/\D/g, ""),
+                })}
+              />
+              {errors.internal_id && (
+                <p className="text-xs text-destructive">
+                  {errors.internal_id.message}
+                </p>
+              )}
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -383,7 +367,7 @@ export default function EquipmentItemFormPage() {
               </div>
               {hasValidStartId && (
                 <p className="text-xs text-muted-foreground sm:col-span-2">
-                  Serial numbers will be auto-generated:{" "}
+                  Internal IDs will be auto-generated:{" "}
                   <span className="font-mono text-foreground">
                     {previewStart}
                     {normalizedQuantity > 1 ? ` to ${previewEnd}` : ""}

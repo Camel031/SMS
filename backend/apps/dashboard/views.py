@@ -213,7 +213,7 @@ def dashboard_attention_items(request):
             "title": f"Fault: {f.title}",
             "description": (
                 f"{f.equipment_item.equipment_model} "
-                f"[{f.equipment_item.serial_number}]"
+                f"[{f.equipment_item.internal_id}]"
             ),
             "entity_type": "equipment_item",
             "entity_uuid": str(f.equipment_item.uuid),

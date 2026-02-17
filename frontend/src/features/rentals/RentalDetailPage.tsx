@@ -424,7 +424,6 @@ export default function RentalDetailPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Serial Number</TableHead>
                     <TableHead>Internal ID</TableHead>
                     <TableHead>Model</TableHead>
                     <TableHead>Status</TableHead>
@@ -433,9 +432,6 @@ export default function RentalDetailPage() {
                 <TableBody>
                   {equipment.data.map((item) => (
                     <TableRow key={item.uuid}>
-                      <TableCell className="font-medium font-mono text-sm">
-                        {item.serial_number || "\u2014"}
-                      </TableCell>
                       <TableCell className="text-muted-foreground font-mono text-sm">
                         {item.internal_id || "\u2014"}
                       </TableCell>

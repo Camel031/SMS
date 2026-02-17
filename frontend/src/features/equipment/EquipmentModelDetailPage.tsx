@@ -150,13 +150,12 @@ export default function EquipmentModelDetailPage() {
             </div>
           ) : (
             <div className="rounded-md border border-border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Serial #</TableHead>
-                    <TableHead>Internal ID</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Ownership</TableHead>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Internal ID</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Ownership</TableHead>
                     <TableHead className="text-center">Faults</TableHead>
                     <TableHead />
                   </TableRow>
@@ -171,11 +170,8 @@ export default function EquipmentModelDetailPage() {
                             to={`/equipment/items/${item.uuid}`}
                             className="font-mono text-sm font-medium hover:text-primary transition-colors"
                           >
-                            {item.serial_number}
+                            {item.internal_id}
                           </Link>
-                        </TableCell>
-                        <TableCell className="font-mono text-sm text-muted-foreground">
-                          {item.internal_id || "—"}
                         </TableCell>
                         <TableCell>
                           <Badge variant={statusCfg?.variant ?? "outline"}>

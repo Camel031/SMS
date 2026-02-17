@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -62,7 +62,6 @@ const SCHEDULE_TYPE_LABELS: Record<string, string> = {
 
 export default function ScheduleFormPage() {
   const { uuid } = useParams<{ uuid: string }>();
-  const [searchParams] = useSearchParams();
   const isEdit = !!uuid;
   const navigate = useNavigate();
 
@@ -76,7 +75,6 @@ export default function ScheduleFormPage() {
   const {
     register,
     handleSubmit,
-    setValue,
     watch,
     reset,
     control,

@@ -118,7 +118,7 @@ export default function EquipmentItemDetailPage() {
           Equipment
         </Link>
         <ChevronRight className="h-3.5 w-3.5" />
-        <span className="text-foreground">{it.serial_number}</span>
+        <span className="text-foreground">{it.internal_id}</span>
       </div>
 
       {/* Header */}
@@ -132,7 +132,7 @@ export default function EquipmentItemDetailPage() {
           <div>
             <div className="flex items-center gap-3">
               <h1 className="text-xl font-semibold tracking-tight font-mono">
-                {it.serial_number}
+                {it.internal_id}
               </h1>
               <Badge variant={statusCfg?.variant ?? "outline"}>
                 {statusCfg?.label ?? it.current_status}
@@ -210,7 +210,6 @@ export default function EquipmentItemDetailPage() {
 
         <TabsContent value="overview">
           <div className="rounded-md border border-border p-4 space-y-3">
-            <DetailRow label="Serial Number" value={it.serial_number} mono />
             <DetailRow label="Internal ID" value={it.internal_id || "—"} mono />
             <DetailRow label="Model" value={`${it.model_brand ? it.model_brand + " " : ""}${it.model_name}`} />
             <DetailRow label="Category" value={it.category_name} />

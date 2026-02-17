@@ -1,7 +1,6 @@
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChevronRight } from "lucide-react";
-import { differenceInMilliseconds } from "date-fns";
 import {
   Tooltip,
   TooltipContent,

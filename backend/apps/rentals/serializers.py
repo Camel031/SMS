@@ -247,7 +247,6 @@ class EquipmentItemMinimalSerializer(serializers.ModelSerializer):
         model = EquipmentItem
         fields = [
             "uuid",
-            "serial_number",
             "internal_id",
             "current_status",
             "equipment_model_name",

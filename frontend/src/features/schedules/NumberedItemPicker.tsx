@@ -35,7 +35,7 @@ const STATUS_STYLE: Record<
 
 interface GridItem {
   uuid: string;
-  serial_number: string;
+  internal_id: string;
   current_status: EquipmentStatus;
   isCurrentlyPlanned: boolean;
 }
@@ -75,7 +75,7 @@ export function NumberedItemPicker({
   // Build grid items
   const allItems: GridItem[] = (items.data?.results ?? []).map((i) => ({
     uuid: i.uuid,
-    serial_number: i.serial_number,
+    internal_id: i.internal_id,
     current_status: i.current_status,
     isCurrentlyPlanned: plannedUuidSet.has(i.uuid),
   }));
@@ -147,10 +147,10 @@ export function NumberedItemPicker({
 
     setSelectedUuids((prev) => {
       const next = new Set(prev);
-      // Match items whose serial_number contains a number in range
+      // Match items whose internal_id contains a number in range
       for (const item of allItems) {
         if (!isSelectable(item)) continue;
-        const num = parseInt(item.serial_number.replace(/\D/g, ""), 10);
+        const num = parseInt(item.internal_id.replace(/\D/g, ""), 10);
         if (!isNaN(num) && num >= from && num <= to && next.size < quantityPlanned) {
           next.add(item.uuid);
         }
@@ -203,7 +203,7 @@ export function NumberedItemPicker({
           <div className="relative flex-1">
             <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Search serial numbers..."
+              placeholder="Search internal IDs..."
               className="pl-8 h-8 text-sm"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -276,16 +276,16 @@ export function NumberedItemPicker({
                               : cn(statusCfg.bg, "opacity-50 cursor-not-allowed text-muted-foreground"),
                         )}
                       >
-                        {item.serial_number.length > 6
-                          ? "…" + item.serial_number.slice(-5)
-                          : item.serial_number}
+                        {item.internal_id.length > 6
+                          ? "…" + item.internal_id.slice(-5)
+                          : item.internal_id}
                         {isSelected && (
                           <Check className="absolute top-0.5 right-0.5 h-3 w-3 text-primary" />
                         )}
                       </button>
                     </TooltipTrigger>
                     <TooltipContent side="top" className="text-xs">
-                      <p className="font-mono font-semibold">{item.serial_number}</p>
+                      <p className="font-mono font-semibold">{item.internal_id}</p>
                       <p className="text-muted-foreground">
                         {statusCfg.label}
                         {item.isCurrentlyPlanned && " · Currently assigned"}

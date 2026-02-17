@@ -27,7 +27,6 @@ class EquipmentModelAdmin(admin.ModelAdmin):
 @admin.register(EquipmentItem)
 class EquipmentItemAdmin(admin.ModelAdmin):
     list_display = [
-        "serial_number",
         "internal_id",
         "equipment_model",
         "current_status",
@@ -35,7 +34,7 @@ class EquipmentItemAdmin(admin.ModelAdmin):
         "is_active",
     ]
     list_filter = ["current_status", "ownership_type", "is_active"]
-    search_fields = ["serial_number", "internal_id"]
+    search_fields = ["internal_id"]
 
 
 @admin.register(EquipmentStatusLog)

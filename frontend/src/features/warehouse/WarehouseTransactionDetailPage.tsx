@@ -303,7 +303,7 @@ export default function WarehouseTransactionDetailPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Equipment Model</TableHead>
-                  <TableHead>Serial Number</TableHead>
+                  <TableHead>Internal ID</TableHead>
                   <TableHead className="text-right">Quantity</TableHead>
                   <TableHead>Condition</TableHead>
                   <TableHead>Notes</TableHead>
@@ -324,7 +324,7 @@ export default function WarehouseTransactionDetailPage() {
                       </div>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground font-mono">
-                      {item.equipment_item?.serial_number ?? "\u2014"}
+                      {item.equipment_item?.internal_id ?? "\u2014"}
                     </TableCell>
                     <TableCell className="text-right font-mono text-sm">
                       {item.quantity}

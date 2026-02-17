@@ -163,7 +163,6 @@ class EquipmentItemListSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "uuid",
-            "serial_number",
             "internal_id",
             "equipment_model",
             "model_name",
@@ -190,7 +189,6 @@ class EquipmentItemDetailSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "uuid",
-            "serial_number",
             "internal_id",
             "equipment_model",
             "model_name",
@@ -213,11 +211,17 @@ class EquipmentItemDetailSerializer(serializers.ModelSerializer):
 
 
 class EquipmentItemCreateUpdateSerializer(serializers.ModelSerializer):
+    internal_id = serializers.RegexField(
+        regex=r"^\d+$",
+        max_length=100,
+        required=True,
+        help_text="Internal ID (digits only).",
+    )
+
     class Meta:
         model = EquipmentItem
         fields = [
             "equipment_model",
-            "serial_number",
             "internal_id",
             "ownership_type",
             "rental_agreement",
@@ -230,6 +234,14 @@ class EquipmentItemCreateUpdateSerializer(serializers.ModelSerializer):
         ]
 
     def validate(self, attrs):
+        internal_id = attrs.get("internal_id")
+        if internal_id is None:
+            internal_id = self.instance.internal_id if self.instance else ""
+        if not internal_id:
+            raise serializers.ValidationError(
+                {"internal_id": "Internal ID is required."}
+            )
+
         ownership = attrs.get(
             "ownership_type",
             self.instance.ownership_type if self.instance else EquipmentItem.OwnershipType.OWNED,
@@ -253,6 +265,16 @@ class EquipmentItemCreateUpdateSerializer(serializers.ModelSerializer):
         if model and not model.is_numbered:
             raise serializers.ValidationError(
                 {"equipment_model": "Cannot create individual items for unnumbered equipment."}
+            )
+        duplicate_qs = EquipmentItem.objects.filter(
+            equipment_model=model,
+            internal_id=internal_id,
+        )
+        if self.instance:
+            duplicate_qs = duplicate_qs.exclude(pk=self.instance.pk)
+        if duplicate_qs.exists():
+            raise serializers.ValidationError(
+                {"internal_id": "This internal ID already exists in the selected model."}
             )
         return attrs
 

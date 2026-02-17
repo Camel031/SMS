@@ -41,7 +41,6 @@ export interface BatchImportPreview {
   valid_rows: Array<{
     equipment_model_uuid: string;
     equipment_model_name: string;
-    serial_number: string;
     internal_id: string;
     notes: string;
   }>;
@@ -56,7 +55,7 @@ export interface BatchImportResult {
   created: number;
   items: Array<{
     uuid: string;
-    serial_number: string;
+    internal_id: string;
     model_name: string;
   }>;
 }

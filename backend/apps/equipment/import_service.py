@@ -9,8 +9,8 @@ from .models import EquipmentItem, EquipmentModel, EquipmentStatusLog
 class BatchImportService:
     """Parse and validate CSV files for batch equipment import."""
 
-    REQUIRED_COLUMNS = {"equipment_model_uuid", "serial_number"}
-    OPTIONAL_COLUMNS = {"internal_id", "ownership_type", "notes"}
+    REQUIRED_COLUMNS = {"equipment_model_uuid", "internal_id"}
+    OPTIONAL_COLUMNS = {"ownership_type", "notes"}
     ALL_COLUMNS = REQUIRED_COLUMNS | OPTIONAL_COLUMNS
 
     @classmethod
@@ -40,14 +40,14 @@ class BatchImportService:
         for m in EquipmentModel.objects.filter(is_active=True):
             model_cache[str(m.uuid)] = m
 
-        # Pre-fetch existing serial numbers
-        existing_serials = set(
-            EquipmentItem.objects.values_list("serial_number", flat=True)
+        # Pre-fetch existing internal IDs by model
+        existing_ids_by_model = set(
+            EquipmentItem.objects.values_list("equipment_model_id", "internal_id")
         )
 
         valid_rows = []
         errors = []
-        seen_serials = set()
+        seen_ids = set()
 
         for row_num, row in enumerate(reader, start=2):  # Row 1 is header
             row_errors = []
@@ -66,14 +66,23 @@ class BatchImportService:
                         "Batch import only supports numbered equipment."
                     )
 
-            # Validate serial_number
-            serial = (row.get("serial_number") or "").strip()
-            if not serial:
-                row_errors.append("serial_number is required.")
-            elif serial in existing_serials:
-                row_errors.append(f"Serial number '{serial}' already exists in database.")
-            elif serial in seen_serials:
-                row_errors.append(f"Duplicate serial number '{serial}' in CSV.")
+            # Validate internal_id
+            internal_id = (row.get("internal_id") or "").strip()
+            if not internal_id:
+                row_errors.append("internal_id is required.")
+            elif not internal_id.isdigit():
+                row_errors.append("internal_id must contain digits only.")
+            else:
+                internal_id = f"{int(internal_id):03d}"
+                model_key = model_cache[model_uuid].id if model_uuid in model_cache else None
+                if model_key is not None and (model_key, internal_id) in existing_ids_by_model:
+                    row_errors.append(
+                        f"Internal ID '{internal_id}' already exists for this model."
+                    )
+                elif model_key is not None and (model_key, internal_id) in seen_ids:
+                    row_errors.append(
+                        f"Duplicate internal_id '{internal_id}' for this model in CSV."
+                    )
 
             # Validate ownership_type
             ownership = (row.get("ownership_type") or "owned").strip().lower()
@@ -89,13 +98,12 @@ class BatchImportService:
             if row_errors:
                 errors.append({"row": row_num, "errors": row_errors, "data": dict(row)})
             else:
-                seen_serials.add(serial)
+                seen_ids.add((model_cache[model_uuid].id, internal_id))
                 valid_rows.append({
                     "equipment_model_uuid": model_uuid,
                     "equipment_model_id": model_cache[model_uuid].id,
                     "equipment_model_name": str(model_cache[model_uuid]),
-                    "serial_number": serial,
-                    "internal_id": (row.get("internal_id") or "").strip(),
+                    "internal_id": internal_id,
                     "notes": (row.get("notes") or "").strip(),
                 })
 
@@ -110,8 +118,7 @@ class BatchImportService:
         for row in valid_rows:
             item = EquipmentItem.objects.create(
                 equipment_model_id=row["equipment_model_id"],
-                serial_number=row["serial_number"],
-                internal_id=row.get("internal_id", ""),
+                internal_id=row["internal_id"],
                 notes=row.get("notes", ""),
                 current_status=EquipmentItem.Status.AVAILABLE,
             )
@@ -130,7 +137,7 @@ class BatchImportService:
             "items": [
                 {
                     "uuid": str(item.uuid),
-                    "serial_number": item.serial_number,
+                    "internal_id": item.internal_id,
                     "model_name": str(item.equipment_model),
                 }
                 for item in created_items

@@ -37,7 +37,6 @@ export interface EquipmentSummary {
 
 export interface EquipmentItemMinimal {
   uuid: string;
-  serial_number: string;
   internal_id: string;
   current_status: string;
   equipment_model_name: string;

@@ -24,7 +24,7 @@ export interface TransferLineItemEquipmentModel {
 
 export interface TransferLineItemEquipmentItem {
   uuid: string;
-  serial_number: string;
+  internal_id: string;
   current_status: string;
 }
 

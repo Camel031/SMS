@@ -48,7 +48,7 @@ class TransferTestBase(TestCase):
         )
         self.eq_item = EquipmentItem.objects.create(
             equipment_model=self.eq_model,
-            serial_number="MP-T001",
+            internal_id="MP-T001",
             current_status=EquipmentItem.Status.AVAILABLE,
         )
 

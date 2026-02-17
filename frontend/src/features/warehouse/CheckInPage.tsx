@@ -271,7 +271,7 @@ export default function CheckInPage() {
                         />
                       </TableHead>
                       <TableHead>Equipment</TableHead>
-                      <TableHead>Serial Number</TableHead>
+                      <TableHead>Internal ID</TableHead>
                       <TableHead className="text-right">Qty Out</TableHead>
                       <TableHead>Checked Out By</TableHead>
                       <TableHead>Condition</TableHead>
@@ -293,7 +293,7 @@ export default function CheckInPage() {
                           </span>
                         </TableCell>
                         <TableCell className="font-mono text-sm text-muted-foreground">
-                          {record.equipment_item?.serial_number ?? "\u2014"}
+                          {record.equipment_item?.internal_id ?? "\u2014"}
                         </TableCell>
                         <TableCell className="text-right font-mono text-sm">
                           {record.quantity_still_out}

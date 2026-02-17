@@ -239,7 +239,7 @@ class ScheduleStatusTests(ScheduleTestBase):
         )
         item = EquipmentItem.objects.create(
             equipment_model=self.eq_model,
-            serial_number="SN-CHECKOUT-001",
+            internal_id="SN-CHECKOUT-001",
         )
         CheckoutRecord.objects.create(
             schedule_equipment=allocation,
@@ -399,7 +399,7 @@ class ScheduleEquipmentTests(ScheduleTestBase):
         )
         item = EquipmentItem.objects.create(
             equipment_model=self.eq_model,
-            serial_number="SN-PATCH-PLANNED-001",
+            internal_id="SN-PATCH-PLANNED-001",
         )
 
         resp = self.client.patch(
@@ -541,7 +541,7 @@ class AvailabilityTests(ScheduleTestBase):
         for i in range(10):
             EquipmentItem.objects.create(
                 equipment_model=self.eq_model,
-                serial_number=f"SN-AVAIL-{i:03d}",
+                internal_id=f"SN-AVAIL-{i:03d}",
                 ownership_type=EquipmentItem.OwnershipType.OWNED,
                 current_status=EquipmentItem.Status.AVAILABLE,
                 is_active=True,
@@ -570,7 +570,7 @@ class AvailabilityTests(ScheduleTestBase):
         for i in range(5):
             EquipmentItem.objects.create(
                 equipment_model=self.eq_model,
-                serial_number=f"SN-CHECK-{i:03d}",
+                internal_id=f"SN-CHECK-{i:03d}",
                 ownership_type=EquipmentItem.OwnershipType.OWNED,
                 current_status=EquipmentItem.Status.AVAILABLE,
                 is_active=True,
@@ -611,7 +611,7 @@ class AvailabilityTests(ScheduleTestBase):
         for i in range(3):
             EquipmentItem.objects.create(
                 equipment_model=self.eq_model,
-                serial_number=f"SN-OVER-{i:03d}",
+                internal_id=f"SN-OVER-{i:03d}",
                 ownership_type=EquipmentItem.OwnershipType.OWNED,
                 current_status=EquipmentItem.Status.AVAILABLE,
                 is_active=True,
@@ -697,7 +697,7 @@ class ScheduleCheckoutRecordTests(ScheduleTestBase):
         )
         item = EquipmentItem.objects.create(
             equipment_model=self.eq_model,
-            serial_number="SN-CR-001",
+            internal_id="001",
         )
         record = CheckoutRecord.objects.create(
             schedule_equipment=allocation,
@@ -756,7 +756,7 @@ class ScheduleCheckoutRecordTests(ScheduleTestBase):
         # Create a second active checkout
         item2 = EquipmentItem.objects.create(
             equipment_model=self.eq_model,
-            serial_number="SN-CR-002",
+            internal_id="002",
         )
         CheckoutRecord.objects.create(
             schedule_equipment=allocation,
@@ -777,7 +777,7 @@ class ScheduleCheckoutRecordTests(ScheduleTestBase):
         )
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.assertEqual(len(resp.data), 1)
-        self.assertEqual(resp.data[0]["equipment_item"]["serial_number"], "SN-CR-002")
+        self.assertEqual(resp.data[0]["equipment_item"]["internal_id"], "002")
 
     def test_serializer_fields(self):
         """Response includes all expected checkout record fields."""

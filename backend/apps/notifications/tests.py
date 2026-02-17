@@ -782,7 +782,7 @@ class EventEmissionIntegrationTest(NotificationTestBase):
         for i in range(3):
             EquipmentItem.objects.create(
                 equipment_model=model,
-                serial_number=f"CONFLICT-{i:03d}",
+                internal_id=f"CONFLICT-{i:03d}",
             )
 
         now = timezone.now()
@@ -957,7 +957,7 @@ class PeriodicTaskTest(TestCase):
         )
         item = EquipmentItem.objects.create(
             equipment_model=model,
-            serial_number="MIC-001",
+            internal_id="MIC-001",
             current_status="available",
             is_active=True,
         )

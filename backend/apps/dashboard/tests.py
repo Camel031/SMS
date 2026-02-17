@@ -69,15 +69,15 @@ class DashboardSummaryTest(TestCase):
         )
 
         EquipmentItem.objects.create(
-            equipment_model=model_a, serial_number="MP-001",
+            equipment_model=model_a, internal_id="MP-001",
             current_status=EquipmentItem.Status.AVAILABLE,
         )
         EquipmentItem.objects.create(
-            equipment_model=model_a, serial_number="MP-002",
+            equipment_model=model_a, internal_id="MP-002",
             current_status=EquipmentItem.Status.AVAILABLE,
         )
         EquipmentItem.objects.create(
-            equipment_model=model_a, serial_number="MP-003",
+            equipment_model=model_a, internal_id="MP-003",
             current_status=EquipmentItem.Status.OUT,
         )
 
@@ -180,7 +180,7 @@ class DashboardSummaryTest(TestCase):
             name="Test", category=self.category, is_numbered=True
         )
         item = EquipmentItem.objects.create(
-            equipment_model=model, serial_number="T-001",
+            equipment_model=model, internal_id="T-001",
             current_status=EquipmentItem.Status.AVAILABLE,
         )
 
@@ -272,7 +272,7 @@ class UpcomingSchedulesTest(TestCase):
             name="Light", category=self.category, is_numbered=True,
         )
         item1 = EquipmentItem.objects.create(
-            equipment_model=model, serial_number="L-001",
+            equipment_model=model, internal_id="L-001",
             current_status="available",
         )
 
@@ -332,7 +332,7 @@ class AttentionItemsTest(TestCase):
             name="Light", category=self.category, is_numbered=True,
         )
         item = EquipmentItem.objects.create(
-            equipment_model=model, serial_number="L-001",
+            equipment_model=model, internal_id="L-001",
             current_status="out",
         )
 
@@ -364,7 +364,7 @@ class AttentionItemsTest(TestCase):
             name="Light", category=self.category, is_numbered=True,
         )
         item = EquipmentItem.objects.create(
-            equipment_model=model, serial_number="L-001",
+            equipment_model=model, internal_id="L-001",
             current_status="available",
         )
         FaultRecord.objects.create(
@@ -400,7 +400,7 @@ class AttentionItemsTest(TestCase):
             name="Light", category=self.category, is_numbered=True,
         )
         item = EquipmentItem.objects.create(
-            equipment_model=model, serial_number="L-001",
+            equipment_model=model, internal_id="L-001",
             current_status="available",
         )
         FaultRecord.objects.create(

@@ -73,7 +73,7 @@ export interface EquipmentModelNested {
 
 export interface PlannedItemNested {
   uuid: string;
-  serial_number: string;
+  internal_id: string;
 }
 
 export interface ScheduleEquipmentItem {
@@ -100,7 +100,7 @@ export interface ScheduleEquipmentFormData {
 
 export interface CheckoutRecordItem {
   id: number;
-  equipment_item: { uuid: string; serial_number: string } | null;
+  equipment_item: { uuid: string; internal_id: string } | null;
   equipment_model_name: string;
   quantity: number;
   checked_out_at: string;

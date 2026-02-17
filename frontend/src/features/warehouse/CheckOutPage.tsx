@@ -35,7 +35,6 @@ import { useRentalAgreements } from "@/hooks/use-rentals";
 import { useEquipmentItems } from "@/hooks/use-equipment";
 import { useCheckOut } from "@/hooks/use-warehouse";
 import type { TransactionLineItemCreate } from "@/types/warehouse";
-import type { ScheduleEquipmentItem } from "@/types/schedule";
 
 // ─── Types ─────────────────────────────────────────────────────────
 
@@ -113,7 +112,7 @@ export default function CheckOutPage() {
       is_numbered: allocation.equipment_model.is_numbered,
       equipment_item_uuid: addingItemUuid || undefined,
       equipment_item_label: item
-        ? item.serial_number
+        ? item.internal_id
         : undefined,
       quantity: allocation.equipment_model.is_numbered ? 1 : addingQuantity,
       notes: "",
@@ -277,7 +276,7 @@ export default function CheckOutPage() {
 
               {isNumbered && addingModelUuid && (
                 <div className="space-y-1 min-w-[180px]">
-                  <Label className="text-xs">Serial Number</Label>
+                  <Label className="text-xs">Internal ID</Label>
                   <Select
                     value={addingItemUuid}
                     onValueChange={setAddingItemUuid}
@@ -288,7 +287,7 @@ export default function CheckOutPage() {
                     <SelectContent>
                       {items.data?.results.map((item) => (
                         <SelectItem key={item.uuid} value={item.uuid}>
-                          {item.serial_number}
+                          {item.internal_id}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -355,7 +354,7 @@ export default function CheckOutPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Equipment Model</TableHead>
-                    <TableHead>Serial Number</TableHead>
+                    <TableHead>Internal ID</TableHead>
                     <TableHead className="text-right">Qty</TableHead>
                     <TableHead>Notes</TableHead>
                     <TableHead className="w-10" />

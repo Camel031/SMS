@@ -52,12 +52,12 @@ class WarehouseTestBase(TestCase):
         )
         self.eq_item = EquipmentItem.objects.create(
             equipment_model=self.eq_model,
-            serial_number="MP-001",
+            internal_id="MP-001",
             current_status=EquipmentItem.Status.AVAILABLE,
         )
         self.eq_item2 = EquipmentItem.objects.create(
             equipment_model=self.eq_model,
-            serial_number="MP-002",
+            internal_id="MP-002",
             current_status=EquipmentItem.Status.AVAILABLE,
         )
 

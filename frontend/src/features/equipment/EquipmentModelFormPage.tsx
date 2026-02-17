@@ -30,13 +30,13 @@ import type { EquipmentCategoryTree, CustomFieldDefinition } from "@/types/equip
 const equipmentModelSchema = z
   .object({
     name: z.string().min(1, "Name is required").max(200),
-    brand: z.string().max(200).optional().default(""),
-    model_number: z.string().max(200).optional().default(""),
-    description: z.string().optional().default(""),
+    brand: z.string().max(200).optional(),
+    model_number: z.string().max(200).optional(),
+    description: z.string().optional(),
     category: z.string().min(1, "Category is required"),
-    is_numbered: z.boolean().default(true),
-    total_quantity: z.coerce.number().int().min(0).optional().default(0),
-    custom_fields: z.record(z.unknown()).optional().default({}),
+    is_numbered: z.boolean(),
+    total_quantity: z.coerce.number().int().min(0),
+    custom_fields: z.record(z.unknown()),
   })
   .refine(
     (data) => data.is_numbered || data.total_quantity > 0,
@@ -322,7 +322,7 @@ export default function EquipmentModelFormPage() {
             </div>
             <p className="text-xs text-muted-foreground ml-7">
               {isNumbered
-                ? "Each item has a serial number and is tracked individually."
+                ? "Each item has an internal ID and is tracked individually."
                 : "Tracked by total quantity only (e.g. cables, gaffer tape)."}
             </p>
           </div>

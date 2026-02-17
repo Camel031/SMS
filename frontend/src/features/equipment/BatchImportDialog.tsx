@@ -137,8 +137,8 @@ function UploadStep({
         <FileText className="h-10 w-10 mx-auto mb-3 text-muted-foreground opacity-40" />
         <p className="text-sm text-muted-foreground mb-3">
           Upload a CSV file with columns: <code className="text-xs">equipment_model_uuid</code>,{" "}
-          <code className="text-xs">serial_number</code> (required), and optionally{" "}
-          <code className="text-xs">internal_id</code>, <code className="text-xs">notes</code>
+          <code className="text-xs">internal_id</code> (required), and optionally{" "}
+          <code className="text-xs">notes</code>
         </p>
         <label className="inline-block">
           <input
@@ -193,7 +193,6 @@ function PreviewStep({
               <TableHeader>
                 <TableRow>
                   <TableHead>Model</TableHead>
-                  <TableHead>Serial Number</TableHead>
                   <TableHead>Internal ID</TableHead>
                 </TableRow>
               </TableHeader>
@@ -201,8 +200,7 @@ function PreviewStep({
                 {preview.valid_rows.map((row, i) => (
                   <TableRow key={i}>
                     <TableCell className="text-sm">{row.equipment_model_name}</TableCell>
-                    <TableCell className="font-mono text-xs">{row.serial_number}</TableCell>
-                    <TableCell className="font-mono text-xs">{row.internal_id || "—"}</TableCell>
+                    <TableCell className="font-mono text-xs">{row.internal_id}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -264,14 +262,14 @@ function DoneStep({
             <TableHeader>
               <TableRow>
                 <TableHead>Model</TableHead>
-                <TableHead>Serial Number</TableHead>
+                <TableHead>Internal ID</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {result.items.map((item) => (
                 <TableRow key={item.uuid}>
                   <TableCell className="text-sm">{item.model_name}</TableCell>
-                  <TableCell className="font-mono text-xs">{item.serial_number}</TableCell>
+                  <TableCell className="font-mono text-xs">{item.internal_id}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

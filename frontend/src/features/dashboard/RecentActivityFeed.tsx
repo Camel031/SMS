@@ -24,7 +24,7 @@ const CATEGORY_ICONS: Record<
   user: Users,
 };
 
-const CATEGORY_LINKS: Record<string, (uuid: string) => string> = {
+const CATEGORY_LINKS: Partial<Record<string, (uuid: string) => string>> = {
   equipment: (uuid) => `/equipment/models/${uuid}`,
   schedule: (uuid) => `/schedules/${uuid}`,
   warehouse: (uuid) => `/warehouse/transactions/${uuid}`,

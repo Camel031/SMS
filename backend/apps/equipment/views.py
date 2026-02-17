@@ -147,8 +147,8 @@ class EquipmentModelDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 class EquipmentItemListCreateView(generics.ListCreateAPIView):
     filterset_class = EquipmentItemFilter
-    search_fields = ["serial_number", "internal_id", "equipment_model__name", "equipment_model__brand"]
-    ordering_fields = ["serial_number", "current_status", "equipment_model__name", "created_at"]
+    search_fields = ["internal_id", "equipment_model__name", "equipment_model__brand"]
+    ordering_fields = ["internal_id", "current_status", "equipment_model__name", "created_at"]
 
     def get_serializer_class(self):
         if self.request.method == "POST":
@@ -191,16 +191,16 @@ class EquipmentItemBatchCreateView(generics.CreateAPIView):
         duplicates = sorted(
             EquipmentItem.objects.filter(
                 equipment_model=data["equipment_model"],
-                serial_number__in=generated_ids,
+                internal_id__in=generated_ids,
             )
-            .values_list("serial_number", flat=True)
+            .values_list("internal_id", flat=True)
             .distinct()
         )
         if duplicates:
             return Response(
                 {
                     "internal_id": [
-                        f"ID range conflicts with existing serial numbers: {', '.join(duplicates)}"
+                        f"ID range conflicts with existing internal IDs: {', '.join(duplicates)}"
                     ]
                 },
                 status=status.HTTP_400_BAD_REQUEST,
@@ -212,7 +212,6 @@ class EquipmentItemBatchCreateView(generics.CreateAPIView):
                 for generated_id in generated_ids:
                     item = EquipmentItem.objects.create(
                         equipment_model=data["equipment_model"],
-                        serial_number=generated_id,
                         internal_id=generated_id,
                         ownership_type=data.get("ownership_type", EquipmentItem.OwnershipType.OWNED),
                         rental_agreement=data.get("rental_agreement"),
@@ -227,7 +226,7 @@ class EquipmentItemBatchCreateView(generics.CreateAPIView):
                     created_items.append(item)
         except IntegrityError:
             return Response(
-                {"detail": "Failed to create items due to a duplicate serial number."},
+                {"detail": "Failed to create items due to a duplicate internal ID."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
