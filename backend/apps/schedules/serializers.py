@@ -219,6 +219,8 @@ class ScheduleListSerializer(serializers.ModelSerializer):
             "created_by",
             "equipment_count",
             "is_active",
+            "contact_name",
+            "notes",
         ]
         read_only_fields = fields
 

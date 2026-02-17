@@ -99,13 +99,13 @@ export default function RepairKanbanPage() {
 function KanbanBoard({ grouped }: { grouped: Record<string, ScheduleListItem[]> }) {
   const qc = useQueryClient();
 
-  const confirmMutation = useMutation({
+  const beginMutation = useMutation({
     mutationFn: async (uuid: string) => {
-      const { data } = await api.post<ScheduleDetail>(`/schedules/${uuid}/confirm/`);
+      const { data } = await api.post<ScheduleDetail>(`/schedules/${uuid}/begin/`);
       return data;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["schedules"] }),
-    onError: () => toast.error("Failed to confirm schedule"),
+    onError: () => toast.error("Failed to begin schedule"),
   });
 
   const completeMutation = useMutation({
@@ -123,7 +123,7 @@ function KanbanBoard({ grouped }: { grouped: Record<string, ScheduleListItem[]> 
 
     const targetCol = destination.droppableId;
     if (targetCol === "in_progress") {
-      confirmMutation.mutate(draggableId);
+      beginMutation.mutate(draggableId);
     } else if (targetCol === "completed") {
       completeMutation.mutate(draggableId);
     }
@@ -234,6 +234,16 @@ function RepairCard({
           </Badge>
         )}
       </div>
+
+      {item.contact_name && (
+        <p className="text-xs text-muted-foreground truncate">
+          Vendor: <span className="text-foreground">{item.contact_name}</span>
+        </p>
+      )}
+
+      {item.notes && (
+        <p className="text-xs text-muted-foreground line-clamp-2">{item.notes}</p>
+      )}
 
       <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
         <span>{item.equipment_count} item{item.equipment_count !== 1 ? "s" : ""}</span>

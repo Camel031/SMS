@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Search, Plus, Package, AlertTriangle, Clock, FileStack } from "lucide-react";
+import { Search, Plus, Package, AlertTriangle, Clock, FileStack, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +15,8 @@ import { useEquipmentModels, useRecentSelections } from "@/hooks/use-equipment";
 import {
   useAddScheduleEquipment,
   useModelAvailability,
+  useSchedules,
+  useScheduleEquipment,
 } from "@/hooks/use-schedules";
 import { useEquipmentTemplates, useEquipmentTemplate } from "@/hooks/use-templates";
 import { toast } from "sonner";
@@ -222,7 +224,7 @@ export function EquipmentSelector({
   onOpenChange,
   existingModelUuids = [],
 }: EquipmentSelectorProps) {
-  const [mode, setMode] = useState<"search" | "template" | "recent">("search");
+  const [mode, setMode] = useState<"search" | "template" | "copy" | "recent">("search");
   const [searchTerm, setSearchTerm] = useState("");
   const [quantities, setQuantities] = useState<Record<string, number>>({});
 
@@ -268,6 +270,10 @@ export function EquipmentSelector({
               <Search className="h-3.5 w-3.5 mr-1" />
               Search
             </TabsTrigger>
+            <TabsTrigger value="copy" className="flex-1">
+              <Copy className="h-3.5 w-3.5 mr-1" />
+              Copy
+            </TabsTrigger>
             <TabsTrigger value="template" className="flex-1">
               <FileStack className="h-3.5 w-3.5 mr-1" />
               Template
@@ -298,6 +304,14 @@ export function EquipmentSelector({
               onQuantityChange={handleQuantityChange}
               onAdd={handleAdd}
               addEquipment={addEquipment}
+              existingModelUuids={existingModelUuids}
+            />
+          </TabsContent>
+
+          {/* Copy from Event mode */}
+          <TabsContent value="copy">
+            <CopyFromEventTab
+              scheduleUuid={scheduleUuid}
               existingModelUuids={existingModelUuids}
             />
           </TabsContent>
@@ -444,6 +458,121 @@ function TemplateMode({
   );
 }
 
+// ─── Copy from Event Tab ────────────────────────────────────────────
+
+function CopyFromEventTab({
+  scheduleUuid,
+  existingModelUuids,
+}: {
+  scheduleUuid: string;
+  existingModelUuids: string[];
+}) {
+  const [selectedSourceUuid, setSelectedSourceUuid] = useState<string | null>(null);
+  const schedules = useSchedules();
+  const sourceEquipment = useScheduleEquipment(selectedSourceUuid ?? "");
+  const addEquipment = useAddScheduleEquipment(scheduleUuid);
+  const [addedModels, setAddedModels] = useState<Set<string>>(new Set());
+
+  const handleCopyAll = async () => {
+    if (!sourceEquipment.data) return;
+    for (const alloc of sourceEquipment.data) {
+      const modelUuid = alloc.equipment_model.uuid;
+      if (existingModelUuids.includes(modelUuid) || addedModels.has(modelUuid)) continue;
+      try {
+        await addEquipment.mutateAsync({
+          equipment_model_uuid: modelUuid,
+          quantity_planned: alloc.quantity_planned,
+        });
+        setAddedModels((prev) => new Set(prev).add(modelUuid));
+      } catch {
+        toast.error(`Failed to add ${alloc.equipment_model.name}`);
+        return;
+      }
+    }
+    toast.success("Equipment copied from event");
+  };
+
+  // Schedule picker
+  if (!selectedSourceUuid) {
+    return (
+      <div className="max-h-[400px] space-y-2 overflow-y-auto">
+        {schedules.isLoading ? (
+          <div className="space-y-2">
+            {[1, 2, 3].map((i) => <Skeleton key={i} className="h-12 w-full" />)}
+          </div>
+        ) : !schedules.data?.results.length ? (
+          <div className="flex flex-col items-center justify-center py-12">
+            <Package className="h-10 w-10 text-muted-foreground/40" />
+            <p className="mt-3 text-sm text-muted-foreground">No schedules found</p>
+          </div>
+        ) : (
+          schedules.data.results
+            .filter((s) => s.uuid !== scheduleUuid)
+            .map((s) => (
+              <button
+                key={s.uuid}
+                type="button"
+                className="w-full text-left rounded-md border border-border px-3 py-2.5 hover:bg-muted transition-colors"
+                onClick={() => setSelectedSourceUuid(s.uuid)}
+              >
+                <p className="text-sm font-medium">{s.title}</p>
+                <p className="text-xs text-muted-foreground">
+                  {s.equipment_count} item{s.equipment_count !== 1 ? "s" : ""}
+                  {" · "}
+                  {new Date(s.start_datetime).toLocaleDateString()}
+                </p>
+              </button>
+            ))
+        )}
+      </div>
+    );
+  }
+
+  // Source equipment list
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => { setSelectedSourceUuid(null); setAddedModels(new Set()); }}
+        >
+          Back to schedules
+        </Button>
+        <Button size="sm" onClick={handleCopyAll} disabled={addEquipment.isPending}>
+          {addEquipment.isPending ? "Copying..." : "Copy All Items"}
+        </Button>
+      </div>
+      <div className="max-h-[350px] space-y-2 overflow-y-auto">
+        {sourceEquipment.isLoading ? (
+          <div className="space-y-2">
+            {[1, 2, 3].map((i) => <Skeleton key={i} className="h-12 w-full" />)}
+          </div>
+        ) : (
+          sourceEquipment.data?.map((alloc) => {
+            const modelUuid = alloc.equipment_model.uuid;
+            const isAdded = existingModelUuids.includes(modelUuid) || addedModels.has(modelUuid);
+            return (
+              <div key={alloc.id} className="flex items-center gap-3 rounded-md border border-border px-3 py-2.5">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">
+                    {alloc.equipment_model.name}
+                    {alloc.equipment_model.brand && (
+                      <span className="text-muted-foreground ml-1">({alloc.equipment_model.brand})</span>
+                    )}
+                  </p>
+                </div>
+                <Badge variant="secondary">&times;{alloc.quantity_planned}</Badge>
+                {isAdded && <span className="text-xs text-muted-foreground">Added</span>}
+              </div>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Recent Tab ─────────────────────────────────────────────────────
 
 function RecentTab({
@@ -463,7 +592,7 @@ function RecentTab({
   addEquipment: ReturnType<typeof useAddScheduleEquipment>;
   existingModelUuids: string[];
 }) {
-  const recent = useRecentSelections(10);
+  const recent = useRecentSelections();
   return (
     <ModelList
       models={recent.data}

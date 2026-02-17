@@ -22,6 +22,8 @@ export interface ScheduleListItem {
   created_by: UserMinimal | null;
   equipment_count: number;
   is_active: boolean;
+  contact_name: string;
+  notes: string;
 }
 
 export interface ScheduleDetail extends ScheduleListItem {

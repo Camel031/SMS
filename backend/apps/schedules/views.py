@@ -216,6 +216,19 @@ class DispatchEventListCreateView(generics.ListCreateAPIView):
 
 @api_view(["POST"])
 @permission_classes([permissions.IsAuthenticated])
+def schedule_begin_view(request, uuid):
+    """CONFIRMED -> IN_PROGRESS."""
+    schedule = get_object_or_404(Schedule, uuid=uuid)
+    notes = request.data.get("notes", "")
+    try:
+        schedule = ScheduleStatusService.begin(schedule, request.user, notes=notes)
+    except InvalidScheduleTransitionError as e:
+        return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+    return Response(ScheduleDetailSerializer(schedule).data)
+
+
+@api_view(["POST"])
+@permission_classes([permissions.IsAuthenticated])
 def schedule_confirm_view(request, uuid):
     """DRAFT -> CONFIRMED."""
     schedule = get_object_or_404(Schedule, uuid=uuid)

@@ -19,6 +19,7 @@ urlpatterns = [
     # Checkout records (active items still out for a schedule)
     path("schedules/<uuid:schedule_uuid>/checkout-records/", views.ScheduleCheckoutRecordListView.as_view(), name="schedule-checkout-records"),
     # Status transition endpoints
+    path("schedules/<uuid:uuid>/begin/", views.schedule_begin_view, name="schedule-begin"),
     path("schedules/<uuid:uuid>/confirm/", views.schedule_confirm_view, name="schedule-confirm"),
     path("schedules/<uuid:uuid>/complete/", views.schedule_complete_view, name="schedule-complete"),
     path("schedules/<uuid:uuid>/cancel/", views.schedule_cancel_view, name="schedule-cancel"),

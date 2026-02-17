@@ -318,7 +318,12 @@ export function useItemSchedules(itemUuid: string) {
     queryFn: async () => {
       const { data } = await api.get<PaginatedResponse<ScheduleListItem>>(
         "/schedules/",
-        { params: { equipment_item: itemUuid } },
+        {
+          params: {
+            equipment_item: itemUuid,
+            start: new Date().toISOString(),
+          },
+        },
       );
       return data;
     },

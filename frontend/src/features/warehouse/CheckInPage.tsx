@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowDownToLine,
   ArrowLeft,
@@ -53,8 +53,18 @@ const CONDITION_OPTIONS = [
 
 export default function CheckInPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const scheduleFromQuery = searchParams.get("schedule") ?? "";
   const [contextType, setContextType] = useState<ContextType>("schedule");
-  const [selectedUuid, setSelectedUuid] = useState("");
+  const [selectedUuid, setSelectedUuid] = useState(scheduleFromQuery);
+
+  // Auto-select schedule from query param
+  useEffect(() => {
+    if (scheduleFromQuery) {
+      setContextType("schedule");
+      setSelectedUuid(scheduleFromQuery);
+    }
+  }, [scheduleFromQuery]);
   const [selectedRecordIds, setSelectedRecordIds] = useState<Set<number>>(
     new Set(),
   );

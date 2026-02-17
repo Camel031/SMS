@@ -1784,7 +1784,7 @@ const { canCheckOut, canManageUsers, requiresConfirmation } = usePermission();
 | 6 | Core UX Completion | ✅ Done | 出入庫操作頁、移轉 CRUD、使用者管理 |
 | 7 | Dashboard, Timeline & Export | ✅ Done | 完整 Dashboard、Gantt 時間軸（Excel 匯出待範例） |
 | 8 | Advanced Notifications | ✅ Done | 偏好矩陣、多管道分發、4 個 Celery Beat 定時任務 |
-| 9 | Equipment Utilities | 🔲 TODO | 模板、CSV 匯入、維修 Kanban、序號選取器 |
+| 9 | Equipment Utilities | 🔧 In Progress | 模板、CSV 匯入、維修 Kanban、序號選取器（Gap 修復中） |
 | 10 | Data Alignment & Export | 🔲 TODO | Notification 欄位對齊、Display Status、Reconciliation 增強、Excel 匯出 |
 | 11 | Polish, Production & Integrations | 🔲 TODO | 效能、mobile、DevOps、CI/CD、Push/報表 |
 
@@ -2017,6 +2017,19 @@ const { canCheckOut, canManageUsers, requiresConfirmation } = usePermission();
 - **CSV 匯入 UI**：設備管理頁新增「批次匯入」按鈕 → 上傳 CSV → 預覽 + 驗證結果 → 確認匯入
 
 **Deliverable**: 設備模板、批次匯入、維修 Kanban、序號選取器、EquipmentSelector 完整六種入口、設備詳情頁完整五 tabs
+
+#### Phase 9 Gap Tracker
+
+> 初版已完成核心結構（commit `57dc268`），以下為與原始規格對照後的差異修復清單：
+
+- [x] **Gap 1: NumberedItemPicker 未達規格** — 重寫為 grid 佈局 + 狀態色塊 + range input + Shift+Click + tooltip
+- [x] **Gap 2: EquipmentSelector 缺少入口模式** — 新增「Copy from Event」tab，可從其他排程複製設備清單
+- [x] **Gap 3: Recent 模式數量** — 改為 `useRecentSelections()` (預設 5)
+- [x] **Gap 4: Repair Kanban 卡片資訊不足** — 新增 vendor (contact_name)、notes 顯示；ScheduleListSerializer 增加 contact_name + notes
+- [x] **Gap 5: Repair Kanban 拖放狀態邏輯** — 新增 `/begin/` endpoint；拖到 in_progress 改呼叫 beginMutation
+- [x] **Gap 6: Check-in 頁未讀取 query param** — CheckInPage 新增 useSearchParams 讀取 `?schedule=` 自動預選
+- [x] **Gap 7: repair_completed 流程未落地** — 通知訊息增加「請至 Warehouse → Check In 歸還設備」提示
+- [x] **Gap 8: Equipment Item Schedules tab** — useItemSchedules 增加 `start: new Date().toISOString()` 過濾未來排程
 
 ---
 
