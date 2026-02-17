@@ -459,7 +459,7 @@ def _checkin_for_schedule(txn, line_items, user, schedule):
 
             # Automatically report damage.
             if condition == "damaged" and li.equipment_item:
-                FaultRecord.objects.create(
+                fault = FaultRecord.objects.create(
                     equipment_item=li.equipment_item,
                     reported_by=user,
                     title=(
@@ -473,6 +473,7 @@ def _checkin_for_schedule(txn, line_items, user, schedule):
                     ),
                     severity=FaultRecord.Severity.MEDIUM,
                 )
+                NotificationService.on_fault_reported(fault, user)
         else:
             # Unnumbered equipment.
             active_record = CheckoutRecord.objects.filter(

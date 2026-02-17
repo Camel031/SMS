@@ -235,6 +235,48 @@ class NotificationService:
             )
 
     @classmethod
+    def on_repair_completed(cls, schedule, changed_by):
+        """Notify equipment managers when an external repair is completed."""
+        managers = User.objects.filter(
+            can_manage_equipment=True, is_active=True,
+        ).exclude(pk=changed_by.pk)
+
+        cls.notify_many(
+            recipients=managers,
+            category=Notification.Category.SCHEDULE,
+            title=f"Repair completed: {schedule.title}",
+            message=(
+                f'External repair "{schedule.title}" has been completed by {changed_by}. '
+                f"Please check in the returned equipment via Warehouse → Check In."
+            ),
+            entity_type="schedule",
+            entity_uuid=schedule.uuid,
+            actor=changed_by,
+            event_type="repair_completed",
+        )
+
+    @classmethod
+    def on_equipment_conflict(cls, schedule):
+        """Notify equipment managers when a schedule has over-allocation conflicts."""
+        managers = User.objects.filter(
+            can_manage_equipment=True, is_active=True,
+        )
+
+        cls.notify_many(
+            recipients=managers,
+            category=Notification.Category.EQUIPMENT,
+            severity=Notification.Severity.WARNING,
+            title=f"Equipment conflict: {schedule.title}",
+            message=(
+                f'Schedule "{schedule.title}" has over-allocated equipment '
+                "and requires review."
+            ),
+            entity_type="schedule",
+            entity_uuid=schedule.uuid,
+            event_type="equipment_conflict",
+        )
+
+    @classmethod
     def on_fault_reported(cls, fault, reporter):
         """Notify equipment managers about new faults."""
         managers = User.objects.filter(

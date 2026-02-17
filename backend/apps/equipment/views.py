@@ -251,11 +251,14 @@ class FaultRecordCreateView(generics.CreateAPIView):
     serializer_class = FaultRecordCreateSerializer
 
     def perform_create(self, serializer):
+        from apps.notifications.services import NotificationService
+
         item = EquipmentItem.objects.get(uuid=self.kwargs["uuid"])
-        serializer.save(
+        fault = serializer.save(
             equipment_item=item,
             reported_by=self.request.user,
         )
+        NotificationService.on_fault_reported(fault, self.request.user)
 
 
 @api_view(["POST"])

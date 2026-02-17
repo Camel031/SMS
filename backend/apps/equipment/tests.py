@@ -4,6 +4,7 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 from apps.accounts.models import User
+from apps.notifications.models import Notification
 
 from .models import (
     EquipmentCategory,
@@ -273,6 +274,27 @@ class FaultRecordAPITest(EquipmentTestBase):
         fault = FaultRecord.objects.first()
         self.assertEqual(fault.equipment_item, self.item)
         self.assertEqual(fault.reported_by, self.viewer)
+
+    def test_create_fault_triggers_notifications_for_equipment_managers(self):
+        self.login_viewer()
+        resp = self.client.post(
+            f"/api/v1/equipment/items/{self.item.uuid}/fault/",
+            {
+                "title": "Lens cracked",
+                "description": "Front lens cracked during load-out",
+                "severity": "high",
+            },
+        )
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+
+        notifications = Notification.objects.filter(
+            category=Notification.Category.EQUIPMENT,
+            entity_type="equipment_item",
+            entity_uuid=self.item.uuid,
+            title__startswith="Fault reported:",
+        )
+        self.assertEqual(notifications.count(), 1)
+        self.assertEqual(notifications.first().recipient, self.admin)
 
     def test_list_faults(self):
         self.login_viewer()

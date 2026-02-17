@@ -139,6 +139,8 @@ class ScheduleStatusService:
             description=f'Completed schedule "{locked.title}"',
         )
         NotificationService.on_schedule_status_change(locked, "completed", user)
+        if locked.schedule_type == Schedule.ScheduleType.EXTERNAL_REPAIR:
+            NotificationService.on_repair_completed(locked, user)
         return locked
 
     @classmethod
@@ -313,6 +315,7 @@ class AvailabilityService:
         """Check and update over-allocation flags for a schedule's equipment.
         equipment_list: optional list of dicts with equipment_model_uuid and quantity.
         If None, checks existing ScheduleEquipment records."""
+        had_conflicts = bool(schedule.has_conflicts)
         has_any_conflict = False
 
         allocations = ScheduleEquipment.objects.filter(
@@ -337,6 +340,9 @@ class AvailabilityService:
             Schedule.objects.filter(pk=schedule.pk).update(
                 has_conflicts=has_any_conflict
             )
+
+        if has_any_conflict and not had_conflicts:
+            NotificationService.on_equipment_conflict(schedule)
 
         return has_any_conflict
 

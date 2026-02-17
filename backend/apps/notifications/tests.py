@@ -736,6 +736,97 @@ class PreferenceDispatchTest(NotificationTestBase):
         self.assertEqual(mock_email_task.delay.call_count, 2)
 
 
+# ─── Event Emission Integration Tests ───────────────────────────────────
+
+
+class EventEmissionIntegrationTest(NotificationTestBase):
+    def test_complete_external_repair_emits_repair_completed_notifications(self):
+        from apps.schedules.models import Schedule
+        from apps.schedules.services import ScheduleStatusService
+
+        now = timezone.now()
+        repair = Schedule.objects.create(
+            schedule_type=Schedule.ScheduleType.EXTERNAL_REPAIR,
+            status=Schedule.Status.IN_PROGRESS,
+            title="Projector Repair",
+            start_datetime=now - timedelta(days=5),
+            end_datetime=now - timedelta(days=1),
+            created_by=self.user,
+        )
+
+        ScheduleStatusService.complete(repair, self.user2)
+
+        notifications = Notification.objects.filter(
+            category=Notification.Category.SCHEDULE,
+            entity_type="schedule",
+            entity_uuid=repair.uuid,
+            title__startswith="Repair completed:",
+        )
+        recipients = set(notifications.values_list("recipient_id", flat=True))
+        self.assertIn(self.user3.pk, recipients)
+
+    def test_new_conflict_emits_equipment_conflict_notifications(self):
+        from apps.equipment.models import EquipmentCategory, EquipmentItem, EquipmentModel
+        from apps.schedules.models import Schedule, ScheduleEquipment
+        from apps.schedules.services import AvailabilityService
+
+        category = EquipmentCategory.objects.create(
+            name="Lighting",
+            slug="lighting",
+        )
+        model = EquipmentModel.objects.create(
+            name="MegaPointe",
+            category=category,
+            is_numbered=True,
+        )
+        for i in range(3):
+            EquipmentItem.objects.create(
+                equipment_model=model,
+                serial_number=f"CONFLICT-{i:03d}",
+            )
+
+        now = timezone.now()
+        schedule_a = Schedule.objects.create(
+            schedule_type=Schedule.ScheduleType.EVENT,
+            status=Schedule.Status.CONFIRMED,
+            title="Event A",
+            start_datetime=now + timedelta(days=1),
+            end_datetime=now + timedelta(days=2),
+            created_by=self.user,
+        )
+        schedule_b = Schedule.objects.create(
+            schedule_type=Schedule.ScheduleType.EVENT,
+            status=Schedule.Status.CONFIRMED,
+            title="Event B",
+            start_datetime=now + timedelta(days=1, hours=2),
+            end_datetime=now + timedelta(days=2, hours=2),
+            created_by=self.user,
+        )
+
+        ScheduleEquipment.objects.create(
+            schedule=schedule_a,
+            equipment_model=model,
+            quantity_planned=3,
+        )
+        ScheduleEquipment.objects.create(
+            schedule=schedule_b,
+            equipment_model=model,
+            quantity_planned=2,
+        )
+
+        has_conflict = AvailabilityService.check_conflicts(schedule_b)
+        self.assertTrue(has_conflict)
+
+        notifications = Notification.objects.filter(
+            category=Notification.Category.EQUIPMENT,
+            entity_type="schedule",
+            entity_uuid=schedule_b.uuid,
+            title__startswith="Equipment conflict:",
+        )
+        recipients = set(notifications.values_list("recipient_id", flat=True))
+        self.assertEqual(recipients, {self.user2.pk, self.user3.pk})
+
+
 # ─── Periodic Task Tests ────────────────────────────────────────────────
 
 
