@@ -1,10 +1,14 @@
 from rest_framework import serializers
 
+from django.db import transaction
+
 from .models import (
     EquipmentCategory,
     EquipmentItem,
     EquipmentModel,
     EquipmentStatusLog,
+    EquipmentTemplate,
+    EquipmentTemplateItem,
     FaultRecord,
 )
 
@@ -325,3 +329,140 @@ class FaultRecordCreateSerializer(serializers.ModelSerializer):
 
 class FaultResolveSerializer(serializers.Serializer):
     resolution_notes = serializers.CharField(required=False, allow_blank=True, default="")
+
+
+# --- Equipment Templates ---
+
+
+class EquipmentTemplateItemSerializer(serializers.ModelSerializer):
+    """Nested serializer for template items. Read returns model info; write accepts model ID + quantity."""
+
+    model_name = serializers.CharField(source="equipment_model.name", read_only=True)
+    model_uuid = serializers.UUIDField(source="equipment_model.uuid", read_only=True)
+    model_brand = serializers.CharField(source="equipment_model.brand", read_only=True)
+    category_name = serializers.CharField(
+        source="equipment_model.category.name", read_only=True
+    )
+
+    class Meta:
+        model = EquipmentTemplateItem
+        fields = [
+            "id",
+            "equipment_model",
+            "model_name",
+            "model_uuid",
+            "model_brand",
+            "category_name",
+            "quantity",
+        ]
+
+
+class EquipmentTemplateListSerializer(serializers.ModelSerializer):
+    item_count = serializers.IntegerField(read_only=True, default=0)
+    created_by_name = serializers.CharField(
+        source="created_by.__str__", read_only=True, default=None
+    )
+
+    class Meta:
+        model = EquipmentTemplate
+        fields = [
+            "id",
+            "uuid",
+            "name",
+            "description",
+            "item_count",
+            "created_by",
+            "created_by_name",
+            "is_active",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "uuid", "created_at", "updated_at"]
+
+
+class EquipmentTemplateDetailSerializer(serializers.ModelSerializer):
+    items = EquipmentTemplateItemSerializer(many=True, read_only=True)
+    item_count = serializers.IntegerField(read_only=True, default=0)
+    created_by_name = serializers.CharField(
+        source="created_by.__str__", read_only=True, default=None
+    )
+
+    class Meta:
+        model = EquipmentTemplate
+        fields = [
+            "id",
+            "uuid",
+            "name",
+            "description",
+            "items",
+            "item_count",
+            "created_by",
+            "created_by_name",
+            "is_active",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "uuid", "created_at", "updated_at"]
+
+
+class EquipmentTemplateCreateUpdateSerializer(serializers.ModelSerializer):
+    """Writable serializer with nested items. Replaces all items on update."""
+
+    items = serializers.ListField(
+        child=serializers.DictField(), write_only=True
+    )
+
+    class Meta:
+        model = EquipmentTemplate
+        fields = ["name", "description", "is_active", "items"]
+
+    def validate_items(self, value):
+        if not value:
+            raise serializers.ValidationError("At least one item is required.")
+        seen_models = set()
+        for item in value:
+            model_id = item.get("equipment_model")
+            quantity = item.get("quantity")
+            if not model_id:
+                raise serializers.ValidationError("Each item must have an equipment_model.")
+            if not quantity or int(quantity) < 1:
+                raise serializers.ValidationError("Each item must have a quantity >= 1.")
+            if model_id in seen_models:
+                raise serializers.ValidationError(
+                    f"Duplicate equipment_model: {model_id}"
+                )
+            seen_models.add(model_id)
+            if not EquipmentModel.objects.filter(id=model_id).exists():
+                raise serializers.ValidationError(
+                    f"Equipment model {model_id} does not exist."
+                )
+        return value
+
+    @transaction.atomic
+    def create(self, validated_data):
+        items_data = validated_data.pop("items")
+        validated_data["created_by"] = self.context["request"].user
+        template = EquipmentTemplate.objects.create(**validated_data)
+        self._create_items(template, items_data)
+        return template
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        items_data = validated_data.pop("items", None)
+        for attr, val in validated_data.items():
+            setattr(instance, attr, val)
+        instance.save()
+        if items_data is not None:
+            instance.items.all().delete()
+            self._create_items(instance, items_data)
+        return instance
+
+    def _create_items(self, template, items_data):
+        EquipmentTemplateItem.objects.bulk_create([
+            EquipmentTemplateItem(
+                template=template,
+                equipment_model_id=item["equipment_model"],
+                quantity=int(item["quantity"]),
+            )
+            for item in items_data
+        ])

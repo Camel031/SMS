@@ -1,3 +1,4 @@
+import { Fragment, useState } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
@@ -9,10 +10,10 @@ import {
   CheckCircle2,
   XCircle,
   RotateCcw,
-  PlayCircle,
   Calendar,
   Package,
   Clock,
+  ListChecks,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -36,6 +37,7 @@ import {
   useDeleteScheduleEquipment,
 } from "@/hooks/use-schedules";
 import { usePermission } from "@/hooks/use-auth";
+import { NumberedItemPicker } from "@/features/schedules/NumberedItemPicker";
 import type { ScheduleType, ScheduleStatus } from "@/types/schedule";
 import { toast } from "sonner";
 
@@ -98,6 +100,7 @@ export default function ScheduleDetailPage() {
   const cancelMutation = useCancelSchedule(uuid ?? "");
   const reopenMutation = useReopenSchedule(uuid ?? "");
   const deleteEquipmentMutation = useDeleteScheduleEquipment(uuid ?? "");
+  const [expandedAllocId, setExpandedAllocId] = useState<number | null>(null);
 
   if (schedule.isLoading) {
     return <DetailSkeleton />;
@@ -384,64 +387,100 @@ export default function ScheduleDetailPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {equipment.data.map((alloc) => (
-                      <TableRow key={alloc.id}>
-                        <TableCell>
-                          <div>
-                            <Link
-                              to={`/equipment/models/${alloc.equipment_model.uuid}`}
-                              className="text-sm font-medium hover:text-primary transition-colors"
-                            >
-                              {alloc.equipment_model.brand && (
-                                <span className="text-muted-foreground">
-                                  {alloc.equipment_model.brand}{" "}
-                                </span>
-                              )}
-                              {alloc.equipment_model.name}
-                            </Link>
-                            {alloc.equipment_model.category_name && (
-                              <div className="mt-0.5">
-                                <Badge variant="outline" className="text-[10px]">
-                                  {alloc.equipment_model.category_name}
-                                </Badge>
+                    {equipment.data.map((alloc) => {
+                      const isExpanded = expandedAllocId === alloc.id;
+                      const isNumbered = alloc.equipment_model.is_numbered;
+                      const canEdit = perms.canManageSchedules && s.status !== "completed" && s.status !== "cancelled";
+                      return (
+                        <Fragment key={alloc.id}>
+                          <TableRow>
+                            <TableCell>
+                              <div>
+                                <Link
+                                  to={`/equipment/models/${alloc.equipment_model.uuid}`}
+                                  className="text-sm font-medium hover:text-primary transition-colors"
+                                >
+                                  {alloc.equipment_model.brand && (
+                                    <span className="text-muted-foreground">
+                                      {alloc.equipment_model.brand}{" "}
+                                    </span>
+                                  )}
+                                  {alloc.equipment_model.name}
+                                </Link>
+                                {alloc.equipment_model.category_name && (
+                                  <div className="mt-0.5 flex items-center gap-1">
+                                    <Badge variant="outline" className="text-[10px]">
+                                      {alloc.equipment_model.category_name}
+                                    </Badge>
+                                    {isNumbered && alloc.planned_items.length > 0 && (
+                                      <Badge variant="secondary" className="text-[10px]">
+                                        {alloc.planned_items.length} assigned
+                                      </Badge>
+                                    )}
+                                  </div>
+                                )}
                               </div>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-center font-mono text-sm">
-                          {alloc.quantity_planned}
-                        </TableCell>
-                        <TableCell className="text-center font-mono text-sm">
-                          {alloc.quantity_checked_out}
-                        </TableCell>
-                        <TableCell className="text-center font-mono text-sm">
-                          {alloc.quantity_returned}
-                        </TableCell>
-                        <TableCell>
-                          {alloc.is_over_allocated && (
-                            <Badge variant="warning" className="gap-1">
-                              <AlertTriangle className="h-3 w-3" />
-                              Over-allocated
-                            </Badge>
+                            </TableCell>
+                            <TableCell className="text-center font-mono text-sm">
+                              {alloc.quantity_planned}
+                            </TableCell>
+                            <TableCell className="text-center font-mono text-sm">
+                              {alloc.quantity_checked_out}
+                            </TableCell>
+                            <TableCell className="text-center font-mono text-sm">
+                              {alloc.quantity_returned}
+                            </TableCell>
+                            <TableCell>
+                              {alloc.is_over_allocated && (
+                                <Badge variant="warning" className="gap-1">
+                                  <AlertTriangle className="h-3 w-3" />
+                                  Over-allocated
+                                </Badge>
+                              )}
+                            </TableCell>
+                            <TableCell className="w-20">
+                              <div className="flex gap-1">
+                                {isNumbered && canEdit && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                    onClick={() => setExpandedAllocId(isExpanded ? null : alloc.id)}
+                                    title="Assign items"
+                                  >
+                                    <ListChecks className="h-3.5 w-3.5" />
+                                  </Button>
+                                )}
+                                {canEdit && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                                    onClick={() => handleDeleteEquipment(alloc.id)}
+                                    disabled={deleteEquipmentMutation.isPending}
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </Button>
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                          {isExpanded && isNumbered && (
+                            <TableRow>
+                              <TableCell colSpan={6} className="p-2">
+                                <NumberedItemPicker
+                                  scheduleUuid={uuid ?? ""}
+                                  allocationId={alloc.id}
+                                  modelUuid={alloc.equipment_model.uuid}
+                                  quantityPlanned={alloc.quantity_planned}
+                                  currentPlannedItems={alloc.planned_items}
+                                />
+                              </TableCell>
+                            </TableRow>
                           )}
-                        </TableCell>
-                        <TableCell className="w-8">
-                          {perms.canManageSchedules &&
-                            s.status !== "completed" &&
-                            s.status !== "cancelled" && (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                                onClick={() => handleDeleteEquipment(alloc.id)}
-                                disabled={deleteEquipmentMutation.isPending}
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </Button>
-                            )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                        </Fragment>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </div>

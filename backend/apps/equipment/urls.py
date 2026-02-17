@@ -25,4 +25,10 @@ urlpatterns = [
     # Inventory
     path("inventory/", views.inventory_summary_view, name="inventory-summary"),
     path("inventory/by-status/", views.inventory_by_status_view, name="inventory-by-status"),
+    # Recent selections & Batch import
+    path("recent-selections/", views.recent_selections_view, name="recent-selections"),
+    path("batch-import/", views.batch_import_view, name="batch-import"),
+    # Templates
+    path("templates/", views.EquipmentTemplateListCreateView.as_view(), name="template-list"),
+    path("templates/<uuid:uuid>/", views.EquipmentTemplateDetailView.as_view(), name="template-detail"),
 ]

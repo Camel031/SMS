@@ -13,6 +13,7 @@ from .models import (
     EquipmentItem,
     EquipmentModel,
     EquipmentStatusLog,
+    EquipmentTemplate,
     FaultRecord,
 )
 from .serializers import (
@@ -25,6 +26,9 @@ from .serializers import (
     EquipmentModelDetailSerializer,
     EquipmentModelListSerializer,
     EquipmentStatusLogSerializer,
+    EquipmentTemplateCreateUpdateSerializer,
+    EquipmentTemplateDetailSerializer,
+    EquipmentTemplateListSerializer,
     FaultRecordCreateSerializer,
     FaultRecordSerializer,
     FaultResolveSerializer,
@@ -379,3 +383,136 @@ def model_availability_view(request, uuid):
         equipment_model, start, end, exclude_schedule=exclude_schedule
     )
     return Response(availability)
+
+
+# ─── Equipment Templates ─────────────────────────────────────────────
+
+
+# ─── Recent Selections ────────────────────────────────────────────────
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def recent_selections_view(request):
+    """Return the last N unique equipment models selected by this user."""
+    from apps.schedules.models import ScheduleEquipment
+
+    limit = min(int(request.query_params.get("limit", 5)), 20)
+
+    recent_model_ids = (
+        ScheduleEquipment.objects.filter(schedule__created_by=request.user)
+        .order_by("-created_at")
+        .values_list("equipment_model_id", flat=True)
+    )
+    # Deduplicate while preserving recency order
+    seen = set()
+    unique_ids = []
+    for mid in recent_model_ids:
+        if mid not in seen:
+            seen.add(mid)
+            unique_ids.append(mid)
+        if len(unique_ids) >= limit:
+            break
+
+    if not unique_ids:
+        return Response([])
+
+    models_qs = (
+        EquipmentModel.objects.filter(id__in=unique_ids)
+        .select_related("category")
+        .annotate(
+            item_count=Count("items"),
+            available_count=Count(
+                "items",
+                filter=Q(items__current_status=EquipmentItem.Status.AVAILABLE),
+            ),
+        )
+    )
+    # Restore recency order
+    models_by_id = {m.id: m for m in models_qs}
+    ordered = [models_by_id[mid] for mid in unique_ids if mid in models_by_id]
+    serializer = EquipmentModelListSerializer(ordered, many=True)
+    return Response(serializer.data)
+
+
+# ─── Batch Import ─────────────────────────────────────────────────────
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated, CanManageEquipment])
+def batch_import_view(request):
+    """CSV batch import for equipment items. Use ?confirm=true to execute."""
+    from .import_service import BatchImportService
+
+    csv_file = request.FILES.get("file")
+    if not csv_file:
+        return Response(
+            {"detail": "A CSV file is required."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    confirm = request.query_params.get("confirm", "false").lower() == "true"
+    result = BatchImportService.parse_and_validate(csv_file)
+
+    if result["errors"] and confirm:
+        return Response(
+            {"detail": "Cannot import with validation errors.", "errors": result["errors"]},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if confirm and result["valid_rows"]:
+        import_result = BatchImportService.execute_import(
+            result["valid_rows"], request.user
+        )
+        return Response(import_result, status=status.HTTP_201_CREATED)
+
+    return Response({
+        "valid_count": len(result["valid_rows"]),
+        "error_count": len(result["errors"]),
+        "valid_rows": result["valid_rows"],
+        "errors": result["errors"],
+    })
+
+
+# ─── Equipment Templates ─────────────────────────────────────────────
+
+
+class EquipmentTemplateListCreateView(generics.ListCreateAPIView):
+    search_fields = ["name"]
+    ordering_fields = ["name", "created_at"]
+
+    def get_serializer_class(self):
+        if self.request.method == "POST":
+            return EquipmentTemplateCreateUpdateSerializer
+        return EquipmentTemplateListSerializer
+
+    def get_queryset(self):
+        return EquipmentTemplate.objects.select_related("created_by").annotate(
+            item_count=Count("items"),
+        ).filter(is_active=True)
+
+    def get_permissions(self):
+        if self.request.method == "POST":
+            return [IsAuthenticated(), CanManageEquipment()]
+        return [IsAuthenticated()]
+
+
+class EquipmentTemplateDetailView(generics.RetrieveUpdateDestroyAPIView):
+    lookup_field = "uuid"
+
+    def get_serializer_class(self):
+        if self.request.method in ("PUT", "PATCH"):
+            return EquipmentTemplateCreateUpdateSerializer
+        return EquipmentTemplateDetailSerializer
+
+    def get_queryset(self):
+        return EquipmentTemplate.objects.select_related("created_by").annotate(
+            item_count=Count("items"),
+        ).prefetch_related(
+            "items__equipment_model__category",
+        )
+
+    def get_permissions(self):
+        if self.request.method in ("PUT", "PATCH", "DELETE"):
+            return [IsAuthenticated(), CanManageEquipment()]
+        return [IsAuthenticated()]

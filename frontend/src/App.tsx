@@ -31,6 +31,8 @@ import NotificationPreferencesPage from "@/features/notifications/NotificationPr
 import TimelinePage from "@/features/timeline/TimelinePage";
 import AuditLogPage from "@/features/audit/AuditLogPage";
 import UserManagementPage from "@/features/admin/UserManagementPage";
+import RepairKanbanPage from "@/features/repairs/RepairKanbanPage";
+import EquipmentTemplatesPage from "@/features/equipment/EquipmentTemplatesPage";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -60,6 +62,7 @@ export default function App() {
             <Route path="equipment/items/new" element={<EquipmentItemFormPage />} />
             <Route path="equipment/items/:uuid" element={<EquipmentItemDetailPage />} />
             <Route path="equipment/items/:uuid/edit" element={<EquipmentItemFormPage />} />
+            <Route path="equipment/templates" element={<EquipmentTemplatesPage />} />
             {/* Inventory */}
             <Route path="inventory" element={<InventoryPage />} />
             {/* Timeline */}
@@ -80,6 +83,8 @@ export default function App() {
             <Route path="warehouse/check-in" element={<CheckInPage />} />
             <Route path="warehouse/pending" element={<PendingConfirmationsPage />} />
             <Route path="warehouse/transactions/:uuid" element={<WarehouseTransactionDetailPage />} />
+            {/* Repairs */}
+            <Route path="repairs" element={<RepairKanbanPage />} />
             {/* Transfers */}
             <Route path="transfers" element={<TransferListPage />} />
             <Route path="transfers/new" element={<TransferFormPage />} />

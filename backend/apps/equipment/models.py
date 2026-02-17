@@ -265,3 +265,50 @@ class FaultRecord(TimestampMixin, UUIDMixin):
     def __str__(self) -> str:
         status = "Resolved" if self.is_resolved else "Open"
         return f"[{status}] {self.title} - {self.equipment_item}"
+
+
+# ── Equipment Templates ──────────────────────────────────────────────
+
+
+class EquipmentTemplate(TimestampMixin, UUIDMixin):
+    """Reusable equipment list template (e.g., 'Standard Concert Rig')."""
+
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="equipment_templates",
+    )
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self) -> str:
+        return self.name
+
+
+class EquipmentTemplateItem(TimestampMixin):
+    """Single line item in a template."""
+
+    template = models.ForeignKey(
+        EquipmentTemplate,
+        on_delete=models.CASCADE,
+        related_name="items",
+    )
+    equipment_model = models.ForeignKey(
+        EquipmentModel,
+        on_delete=models.CASCADE,
+        related_name="template_items",
+    )
+    quantity = models.PositiveIntegerField(default=1)
+
+    class Meta:
+        unique_together = [("template", "equipment_model")]
+        ordering = ["equipment_model__category", "equipment_model__name"]
+
+    def __str__(self) -> str:
+        return f"{self.equipment_model} x{self.quantity}"

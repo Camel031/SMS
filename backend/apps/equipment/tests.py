@@ -10,6 +10,8 @@ from .models import (
     EquipmentItem,
     EquipmentModel,
     EquipmentStatusLog,
+    EquipmentTemplate,
+    EquipmentTemplateItem,
     FaultRecord,
 )
 from .services import EquipmentStatusService, InvalidTransitionError
@@ -496,3 +498,393 @@ class CustomFieldAPITest(EquipmentTestBase):
         )
         self.assertEqual(resp.data["count"], 1)
         self.assertEqual(resp.data["results"][0]["name"], "Weight")
+
+
+# ── Equipment Template Tests ──────────────────────────────────────────
+
+
+class EquipmentTemplateAPITest(EquipmentTestBase):
+    """Tests for equipment template CRUD endpoints."""
+
+    def test_list_templates_empty(self):
+        self.login_admin()
+        resp = self.client.get("/api/v1/equipment/templates/")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.data["count"], 0)
+
+    def test_create_template_with_items(self):
+        self.login_admin()
+        model2 = EquipmentModel.objects.create(
+            name="MAC Viper", brand="MA", category=self.category
+        )
+        resp = self.client.post(
+            "/api/v1/equipment/templates/",
+            {
+                "name": "Concert Rig",
+                "description": "Standard concert setup",
+                "items": [
+                    {"equipment_model": self.model.id, "quantity": 8},
+                    {"equipment_model": model2.id, "quantity": 4},
+                ],
+            },
+            format="json",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+        template = EquipmentTemplate.objects.get(name="Concert Rig")
+        self.assertEqual(template.items.count(), 2)
+        self.assertEqual(template.created_by, self.admin)
+
+    def test_create_template_requires_permission(self):
+        self.login_viewer()
+        resp = self.client.post(
+            "/api/v1/equipment/templates/",
+            {"name": "Test", "items": [{"equipment_model": self.model.id, "quantity": 1}]},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_viewer_can_list_templates(self):
+        self.login_admin()
+        self.client.post(
+            "/api/v1/equipment/templates/",
+            {"name": "Test", "items": [{"equipment_model": self.model.id, "quantity": 1}]},
+            format="json",
+        )
+        self.login_viewer()
+        resp = self.client.get("/api/v1/equipment/templates/")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.data["count"], 1)
+
+    def test_detail_includes_items(self):
+        self.login_admin()
+        template = EquipmentTemplate.objects.create(name="Test", created_by=self.admin)
+        EquipmentTemplateItem.objects.create(
+            template=template, equipment_model=self.model, quantity=6
+        )
+        resp = self.client.get(f"/api/v1/equipment/templates/{template.uuid}/")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(resp.data["items"]), 1)
+        self.assertEqual(resp.data["items"][0]["quantity"], 6)
+
+    def test_update_replaces_items(self):
+        self.login_admin()
+        template = EquipmentTemplate.objects.create(name="Old", created_by=self.admin)
+        EquipmentTemplateItem.objects.create(
+            template=template, equipment_model=self.model, quantity=6
+        )
+        model2 = EquipmentModel.objects.create(
+            name="Wash", brand="Robe", category=self.category
+        )
+        resp = self.client.patch(
+            f"/api/v1/equipment/templates/{template.uuid}/",
+            {
+                "name": "Updated",
+                "items": [{"equipment_model": model2.id, "quantity": 10}],
+            },
+            format="json",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        template.refresh_from_db()
+        self.assertEqual(template.name, "Updated")
+        self.assertEqual(template.items.count(), 1)
+        self.assertEqual(template.items.first().equipment_model, model2)
+
+    def test_delete_template(self):
+        self.login_admin()
+        template = EquipmentTemplate.objects.create(name="Del", created_by=self.admin)
+        EquipmentTemplateItem.objects.create(
+            template=template, equipment_model=self.model, quantity=1
+        )
+        resp = self.client.delete(f"/api/v1/equipment/templates/{template.uuid}/")
+        self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(EquipmentTemplate.objects.filter(uuid=template.uuid).exists())
+
+    def test_search_templates(self):
+        self.login_admin()
+        EquipmentTemplate.objects.create(name="Concert Rig", created_by=self.admin)
+        EquipmentTemplate.objects.create(name="Wedding Setup", created_by=self.admin)
+        resp = self.client.get("/api/v1/equipment/templates/?search=concert")
+        self.assertEqual(resp.data["count"], 1)
+
+    def test_create_template_requires_items(self):
+        self.login_admin()
+        resp = self.client.post(
+            "/api/v1/equipment/templates/",
+            {"name": "Empty", "items": []},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+# ── Batch Import Tests ────────────────────────────────────────────────
+
+
+class BatchImportAPITest(EquipmentTestBase):
+    """Tests for CSV batch import endpoint."""
+
+    def _make_csv(self, rows):
+        """Helper to create an in-memory CSV file."""
+        import io
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        output = io.StringIO()
+        if rows:
+            import csv as csv_mod
+            writer = csv_mod.DictWriter(output, fieldnames=rows[0].keys())
+            writer.writeheader()
+            writer.writerows(rows)
+        content = output.getvalue().encode("utf-8")
+        return SimpleUploadedFile("import.csv", content, content_type="text/csv")
+
+    def test_validate_mode_returns_preview(self):
+        self.login_admin()
+        csv_file = self._make_csv([
+            {"equipment_model_uuid": str(self.model.uuid), "serial_number": "IMP-001"},
+            {"equipment_model_uuid": str(self.model.uuid), "serial_number": "IMP-002"},
+        ])
+        resp = self.client.post(
+            "/api/v1/equipment/batch-import/",
+            {"file": csv_file},
+            format="multipart",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.data["valid_count"], 2)
+        self.assertEqual(resp.data["error_count"], 0)
+        # No items created in validate mode
+        self.assertFalse(EquipmentItem.objects.filter(serial_number="IMP-001").exists())
+
+    def test_confirm_mode_creates_items(self):
+        self.login_admin()
+        csv_file = self._make_csv([
+            {"equipment_model_uuid": str(self.model.uuid), "serial_number": "IMP-001"},
+            {"equipment_model_uuid": str(self.model.uuid), "serial_number": "IMP-002"},
+        ])
+        resp = self.client.post(
+            "/api/v1/equipment/batch-import/?confirm=true",
+            {"file": csv_file},
+            format="multipart",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(resp.data["created"], 2)
+        self.assertTrue(EquipmentItem.objects.filter(serial_number="IMP-001").exists())
+        # Verify status log was created
+        item = EquipmentItem.objects.get(serial_number="IMP-001")
+        self.assertTrue(
+            EquipmentStatusLog.objects.filter(
+                equipment_item=item, action="register"
+            ).exists()
+        )
+
+    def test_duplicate_serial_rejected(self):
+        self.login_admin()
+        csv_file = self._make_csv([
+            {"equipment_model_uuid": str(self.model.uuid), "serial_number": "SN-001"},
+        ])
+        resp = self.client.post(
+            "/api/v1/equipment/batch-import/",
+            {"file": csv_file},
+            format="multipart",
+        )
+        self.assertEqual(resp.data["error_count"], 1)
+        self.assertIn("already exists", resp.data["errors"][0]["errors"][0])
+
+    def test_duplicate_within_csv_rejected(self):
+        self.login_admin()
+        csv_file = self._make_csv([
+            {"equipment_model_uuid": str(self.model.uuid), "serial_number": "NEW-001"},
+            {"equipment_model_uuid": str(self.model.uuid), "serial_number": "NEW-001"},
+        ])
+        resp = self.client.post(
+            "/api/v1/equipment/batch-import/",
+            {"file": csv_file},
+            format="multipart",
+        )
+        self.assertEqual(resp.data["valid_count"], 1)
+        self.assertEqual(resp.data["error_count"], 1)
+
+    def test_missing_columns_rejected(self):
+        self.login_admin()
+        import io
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        content = "name,quantity\ntest,1\n".encode("utf-8")
+        csv_file = SimpleUploadedFile("bad.csv", content, content_type="text/csv")
+        resp = self.client.post(
+            "/api/v1/equipment/batch-import/",
+            {"file": csv_file},
+            format="multipart",
+        )
+        self.assertEqual(resp.data["error_count"], 1)
+        self.assertIn("Missing required columns", resp.data["errors"][0]["error"])
+
+    def test_import_requires_permission(self):
+        self.login_viewer()
+        csv_file = self._make_csv([
+            {"equipment_model_uuid": str(self.model.uuid), "serial_number": "IMP-001"},
+        ])
+        resp = self.client.post(
+            "/api/v1/equipment/batch-import/",
+            {"file": csv_file},
+            format="multipart",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+
+
+# ── Recent Selections Tests ───────────────────────────────────────────
+
+
+class RecentSelectionsAPITest(EquipmentTestBase):
+    """Tests for recent equipment selections endpoint."""
+
+    def test_empty_for_new_user(self):
+        self.login_admin()
+        resp = self.client.get("/api/v1/equipment/recent-selections/")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.data, [])
+
+    def test_returns_deduplicated_models(self):
+        from apps.schedules.models import Schedule, ScheduleEquipment
+
+        self.login_admin()
+        model2 = EquipmentModel.objects.create(
+            name="Wash", brand="Robe", category=self.category
+        )
+        sched = Schedule.objects.create(
+            title="Test Event",
+            schedule_type="event",
+            start_datetime="2026-03-01T08:00:00Z",
+            end_datetime="2026-03-03T22:00:00Z",
+            created_by=self.admin,
+        )
+        # Add same model twice (via different schedules)
+        ScheduleEquipment.objects.create(
+            schedule=sched, equipment_model=self.model, quantity_planned=4
+        )
+        ScheduleEquipment.objects.create(
+            schedule=sched, equipment_model=model2, quantity_planned=2
+        )
+        resp = self.client.get("/api/v1/equipment/recent-selections/")
+        self.assertEqual(len(resp.data), 2)
+        # Should not have duplicates
+        uuids = [r["uuid"] for r in resp.data]
+        self.assertEqual(len(set(uuids)), 2)
+
+    def test_respects_limit(self):
+        from apps.schedules.models import Schedule, ScheduleEquipment
+
+        self.login_admin()
+        sched = Schedule.objects.create(
+            title="Event",
+            schedule_type="event",
+            start_datetime="2026-03-01T08:00:00Z",
+            end_datetime="2026-03-03T22:00:00Z",
+            created_by=self.admin,
+        )
+        for i in range(5):
+            m = EquipmentModel.objects.create(
+                name=f"Model{i}", category=self.category
+            )
+            ScheduleEquipment.objects.create(
+                schedule=sched, equipment_model=m, quantity_planned=1
+            )
+        resp = self.client.get("/api/v1/equipment/recent-selections/?limit=3")
+        self.assertEqual(len(resp.data), 3)
+
+
+# ── Schedule Item Filter Tests ────────────────────────────────────────
+
+
+class ScheduleItemFilterTest(EquipmentTestBase):
+    """Tests for filtering schedules by equipment_item UUID."""
+
+    def setUp(self):
+        super().setUp()
+        self.admin.can_manage_schedules = True
+        self.admin.can_check_out = True
+        self.admin.save()
+
+    def test_filter_via_planned_items(self):
+        from apps.schedules.models import Schedule, ScheduleEquipment
+
+        self.login_admin()
+        sched = Schedule.objects.create(
+            title="Event A",
+            schedule_type="event",
+            start_datetime="2026-03-01T08:00:00Z",
+            end_datetime="2026-03-03T22:00:00Z",
+            created_by=self.admin,
+        )
+        se = ScheduleEquipment.objects.create(
+            schedule=sched, equipment_model=self.model, quantity_planned=4
+        )
+        se.planned_items.add(self.item)
+
+        resp = self.client.get(
+            f"/api/v1/schedules/?equipment_item={self.item.uuid}"
+        )
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.data["count"], 1)
+        self.assertEqual(resp.data["results"][0]["uuid"], str(sched.uuid))
+
+    def test_filter_via_checkout_record(self):
+        from django.utils import timezone
+        from apps.schedules.models import CheckoutRecord, Schedule, ScheduleEquipment
+
+        self.login_admin()
+        sched = Schedule.objects.create(
+            title="Event B",
+            schedule_type="event",
+            start_datetime="2026-03-01T08:00:00Z",
+            end_datetime="2026-03-03T22:00:00Z",
+            created_by=self.admin,
+        )
+        se = ScheduleEquipment.objects.create(
+            schedule=sched, equipment_model=self.model, quantity_planned=1
+        )
+        CheckoutRecord.objects.create(
+            schedule_equipment=se,
+            equipment_item=self.item,
+            quantity=1,
+            checked_out_at=timezone.now(),
+            checked_out_by=self.admin,
+        )
+
+        resp = self.client.get(
+            f"/api/v1/schedules/?equipment_item={self.item.uuid}"
+        )
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.data["count"], 1)
+
+    def test_filter_by_type_and_item(self):
+        from apps.schedules.models import Schedule, ScheduleEquipment
+
+        self.login_admin()
+        event = Schedule.objects.create(
+            title="Event",
+            schedule_type="event",
+            start_datetime="2026-03-01T08:00:00Z",
+            end_datetime="2026-03-03T22:00:00Z",
+            created_by=self.admin,
+        )
+        repair = Schedule.objects.create(
+            title="Repair",
+            schedule_type="external_repair",
+            start_datetime="2026-04-01T08:00:00Z",
+            end_datetime="2026-04-10T22:00:00Z",
+            created_by=self.admin,
+        )
+        se1 = ScheduleEquipment.objects.create(
+            schedule=event, equipment_model=self.model, quantity_planned=1
+        )
+        se1.planned_items.add(self.item)
+        se2 = ScheduleEquipment.objects.create(
+            schedule=repair, equipment_model=self.model, quantity_planned=1
+        )
+        se2.planned_items.add(self.item)
+
+        # Filter for repairs only
+        resp = self.client.get(
+            f"/api/v1/schedules/?equipment_item={self.item.uuid}&type=external_repair"
+        )
+        self.assertEqual(resp.data["count"], 1)
+        self.assertEqual(resp.data["results"][0]["title"], "Repair")

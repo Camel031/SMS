@@ -358,6 +358,21 @@ export function useDeleteCustomField(id: number) {
   });
 }
 
+// ─── Recent Selections ──────────────────────────────────────────────
+
+export function useRecentSelections(limit = 5) {
+  return useQuery({
+    queryKey: ["recent-selections", limit],
+    queryFn: async () => {
+      const { data } = await api.get<EquipmentModel[]>(
+        "/equipment/recent-selections/",
+        { params: { limit: String(limit) } },
+      );
+      return data;
+    },
+  });
+}
+
 // ─── Inventory ──────────────────────────────────────────────────────
 
 export function useInventorySummary() {

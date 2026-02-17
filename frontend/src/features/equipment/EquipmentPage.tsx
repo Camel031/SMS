@@ -8,6 +8,7 @@ import {
   Package,
   AlertTriangle,
   ChevronRight,
+  FileStack,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,6 +33,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useEquipmentModels, useEquipmentItems, useCategoryTree } from "@/hooks/use-equipment";
 import { usePermission } from "@/hooks/use-auth";
+import BatchImportDialog from "@/features/equipment/BatchImportDialog";
 import { api } from "@/lib/api";
 import { getQueryLoadState } from "@/lib/query-load-state";
 import {
@@ -140,6 +142,13 @@ export default function EquipmentPage() {
         </div>
         {perms.canManageEquipment && (
           <div className="flex gap-2">
+            <BatchImportDialog />
+            <Button variant="outline" size="sm" asChild>
+              <Link to="/equipment/templates">
+                <FileStack className="h-3.5 w-3.5" />
+                Templates
+              </Link>
+            </Button>
             <Button variant="outline" size="sm" asChild>
               <Link to="/equipment/categories">Categories</Link>
             </Button>

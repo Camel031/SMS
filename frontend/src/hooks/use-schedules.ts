@@ -296,6 +296,36 @@ export function useCheckAvailability() {
   });
 }
 
+// ─── Item Schedule Queries ──────────────────────────────────────────
+
+export function useItemRepairHistory(itemUuid: string) {
+  return useQuery({
+    queryKey: ["equipment-items", itemUuid, "repairs"],
+    queryFn: async () => {
+      const { data } = await api.get<PaginatedResponse<ScheduleListItem>>(
+        "/schedules/",
+        { params: { equipment_item: itemUuid, type: "external_repair" } },
+      );
+      return data;
+    },
+    enabled: !!itemUuid,
+  });
+}
+
+export function useItemSchedules(itemUuid: string) {
+  return useQuery({
+    queryKey: ["equipment-items", itemUuid, "schedules"],
+    queryFn: async () => {
+      const { data } = await api.get<PaginatedResponse<ScheduleListItem>>(
+        "/schedules/",
+        { params: { equipment_item: itemUuid } },
+      );
+      return data;
+    },
+    enabled: !!itemUuid,
+  });
+}
+
 // ─── Checkout Records ──────────────────────────────────────────────
 
 export function useScheduleCheckoutRecords(scheduleUuid: string) {

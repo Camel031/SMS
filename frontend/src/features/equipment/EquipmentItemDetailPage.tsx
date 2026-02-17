@@ -9,6 +9,8 @@ import {
   Clock,
   Calendar,
   Shield,
+  Wrench,
+  CalendarDays,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -46,8 +48,11 @@ import {
   useCreateFault,
   useResolveFault,
 } from "@/hooks/use-equipment";
+import { useItemRepairHistory, useItemSchedules } from "@/hooks/use-schedules";
 import { usePermission } from "@/hooks/use-auth";
 import type { EquipmentStatus, FaultSeverity } from "@/types/equipment";
+import type { ScheduleListItem } from "@/types/schedule";
+import type { ScheduleType, ScheduleStatus } from "@/types/schedule";
 
 const STATUS_CONFIG: Record<EquipmentStatus, { label: string; variant: "default" | "secondary" | "destructive" | "outline" | "success" | "warning" | "info" }> = {
   available: { label: "Available", variant: "success" },
@@ -57,6 +62,20 @@ const STATUS_CONFIG: Record<EquipmentStatus, { label: string; variant: "default"
   lost: { label: "Lost", variant: "destructive" },
   retired: { label: "Retired", variant: "outline" },
   returned_to_vendor: { label: "Returned", variant: "outline" },
+};
+
+const SCHEDULE_TYPE_CONFIG: Record<ScheduleType, { label: string; variant: "default" | "warning" | "info" }> = {
+  event: { label: "Event", variant: "default" },
+  external_repair: { label: "Repair", variant: "warning" },
+  rental_out: { label: "Rental", variant: "info" },
+};
+
+const SCHEDULE_STATUS_CONFIG: Record<ScheduleStatus, { label: string; variant: "default" | "secondary" | "destructive" | "outline" | "success" | "warning" | "info" }> = {
+  draft: { label: "Draft", variant: "secondary" },
+  confirmed: { label: "Confirmed", variant: "info" },
+  in_progress: { label: "In Progress", variant: "warning" },
+  completed: { label: "Completed", variant: "success" },
+  cancelled: { label: "Cancelled", variant: "outline" },
 };
 
 const SEVERITY_CONFIG: Record<FaultSeverity, { label: string; variant: "secondary" | "warning" | "destructive" | "info" }> = {
@@ -71,6 +90,8 @@ export default function EquipmentItemDetailPage() {
   const item = useEquipmentItem(uuid ?? "");
   const history = useItemHistory(uuid ?? "");
   const faults = useFaults(uuid ? { equipment_item_uuid: uuid } : undefined);
+  const repairs = useItemRepairHistory(uuid ?? "");
+  const schedules = useItemSchedules(uuid ?? "");
   const perms = usePermission();
 
   if (item.isLoading) {
@@ -177,6 +198,14 @@ export default function EquipmentItemDetailPage() {
           <TabsTrigger value="faults">
             Faults ({faults.data?.count ?? 0})
           </TabsTrigger>
+          <TabsTrigger value="repairs">
+            <Wrench className="h-3.5 w-3.5 mr-1" />
+            Repairs ({repairs.data?.count ?? 0})
+          </TabsTrigger>
+          <TabsTrigger value="schedules">
+            <CalendarDays className="h-3.5 w-3.5 mr-1" />
+            Schedules ({schedules.data?.count ?? 0})
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview">
@@ -276,6 +305,22 @@ export default function EquipmentItemDetailPage() {
               })}
             </div>
           )}
+        </TabsContent>
+
+        <TabsContent value="repairs">
+          <ScheduleTable
+            data={repairs.data?.results}
+            isLoading={repairs.isLoading}
+            emptyMessage="No repair records."
+          />
+        </TabsContent>
+
+        <TabsContent value="schedules">
+          <ScheduleTable
+            data={schedules.data?.results}
+            isLoading={schedules.isLoading}
+            emptyMessage="No schedules found."
+          />
         </TabsContent>
       </Tabs>
     </div>
@@ -476,6 +521,72 @@ function ReportFaultDialog({ itemUuid }: { itemUuid: string }) {
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function ScheduleTable({
+  data,
+  isLoading,
+  emptyMessage,
+}: {
+  data: ScheduleListItem[] | undefined;
+  isLoading: boolean;
+  emptyMessage: string;
+}) {
+  if (isLoading) return <HistorySkeleton />;
+  if (!data || data.length === 0) {
+    return (
+      <div className="rounded-md border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+        {emptyMessage}
+      </div>
+    );
+  }
+  return (
+    <div className="rounded-md border border-border">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Title</TableHead>
+            <TableHead>Type</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead>Dates</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {data.map((s) => {
+            const typeCfg = SCHEDULE_TYPE_CONFIG[s.schedule_type];
+            const statusCfg = SCHEDULE_STATUS_CONFIG[s.status];
+            const start = new Date(s.start_datetime).toLocaleDateString();
+            const end = new Date(s.end_datetime).toLocaleDateString();
+            return (
+              <TableRow key={s.uuid}>
+                <TableCell>
+                  <Link
+                    to={`/schedules/${s.uuid}`}
+                    className="text-sm font-medium hover:underline"
+                  >
+                    {s.title}
+                  </Link>
+                </TableCell>
+                <TableCell>
+                  <Badge variant={typeCfg?.variant ?? "default"}>
+                    {typeCfg?.label ?? s.schedule_type}
+                  </Badge>
+                </TableCell>
+                <TableCell>
+                  <Badge variant={statusCfg?.variant ?? "secondary"}>
+                    {statusCfg?.label ?? s.status}
+                  </Badge>
+                </TableCell>
+                <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                  {start} – {end}
+                </TableCell>
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
+    </div>
   );
 }
 

@@ -125,6 +125,14 @@ export const sidebarPrefetchMap: Record<string, PrefetchFn> = {
       }),
     ]);
   },
+  "/repairs": async (queryClient) => {
+    await prefetchGet(
+      queryClient,
+      ["schedules", { type: "external_repair" }],
+      "/schedules/",
+      { type: "external_repair" },
+    );
+  },
   "/rentals": async (queryClient) => {
     await prefetchGet(
       queryClient,
