@@ -51,7 +51,7 @@ class ScheduleTestBase(TestCase):
         data = {
             "schedule_type": "event",
             "title": "Test Event",
-            "contact_name": "John Doe",
+            "customer_name": "John Doe",
             "contact_phone": "555-1234",
             "start_datetime": self.start.isoformat(),
             "end_datetime": self.end.isoformat(),
@@ -65,7 +65,7 @@ class ScheduleTestBase(TestCase):
         defaults = {
             "schedule_type": "event",
             "title": "Test Event",
-            "contact_name": "John Doe",
+            "customer_name": "John Doe",
             "contact_phone": "555-1234",
             "start_datetime": self.start,
             "end_datetime": self.end,
@@ -127,12 +127,11 @@ class ScheduleCRUDTests(ScheduleTestBase):
             "schedule_type",
             "status",
             "title",
-            "contact_name",
+            "customer_name",
             "contact_phone",
-            "contact_email",
             "start_datetime",
             "end_datetime",
-            "expected_return_date",
+            "show_datetime",
             "location",
             "notes",
             "created_by",
@@ -153,6 +152,22 @@ class ScheduleCRUDTests(ScheduleTestBase):
         ]
         for field in expected_fields:
             self.assertIn(field, resp.data, f"Missing field: {field}")
+        self.assertNotIn("contact_email", resp.data)
+        self.assertNotIn("expected_return_date", resp.data)
+
+    def test_create_schedule_with_show_datetime(self):
+        """POST /schedules/ with show_datetime should persist value."""
+        show_dt = (self.start + timedelta(hours=2)).isoformat()
+        resp = self._create_schedule(show_datetime=show_dt)
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+        schedule = Schedule.objects.order_by("-created_at").first()
+        self.assertIsNotNone(schedule.show_datetime)
+
+    def test_create_schedule_requires_customer_name(self):
+        """POST /schedules/ without customer_name should return 400."""
+        resp = self._create_schedule(customer_name="")
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("customer_name", resp.data)
 
     def test_update_schedule(self):
         """PATCH /schedules/{uuid}/, verify field updated."""
@@ -200,11 +215,15 @@ class ScheduleStatusTests(ScheduleTestBase):
         self.assertIsNotNone(schedule.confirmed_at)
         self.assertEqual(schedule.confirmed_by, self.user)
 
-    def test_confirm_requires_contact_for_event(self):
-        """Create event without contact_name, try confirm, verify 400."""
-        schedule = self._create_schedule_obj(contact_name="")
+    def test_confirm_requires_customer_name(self):
+        """Create event without customer_name, try confirm, verify 400."""
+        schedule = self._create_schedule_obj(customer_name="")
         resp = self.client.post(f"/api/v1/schedules/{schedule.uuid}/confirm/")
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            resp.data["detail"],
+            "Customer name is required to confirm schedules",
+        )
         schedule.refresh_from_db()
         self.assertEqual(schedule.status, Schedule.Status.DRAFT)
 

@@ -29,12 +29,11 @@ const scheduleSchema = z
   .object({
     schedule_type: z.enum(["event", "external_repair", "rental_out"]),
     title: z.string().min(1, "Title is required"),
-    start_datetime: z.string().min(1, "Start date/time is required"),
-    end_datetime: z.string().min(1, "End date/time is required"),
-    expected_return_date: z.string().optional(),
-    contact_name: z.string().optional(),
+    customer_name: z.string().trim().min(1, "Customer name is required"),
     contact_phone: z.string().optional(),
-    contact_email: z.string().email().optional().or(z.literal("")),
+    start_datetime: z.string().min(1, "Start date/time is required"),
+    show_datetime: z.string().optional(),
+    end_datetime: z.string().min(1, "End date/time is required"),
     location: z.string().optional(),
     notes: z.string().optional(),
   })
@@ -84,12 +83,11 @@ export default function ScheduleFormPage() {
     defaultValues: {
       schedule_type: "event",
       title: "",
-      start_datetime: "",
-      end_datetime: "",
-      expected_return_date: "",
-      contact_name: "",
+      customer_name: "",
       contact_phone: "",
-      contact_email: "",
+      start_datetime: "",
+      show_datetime: "",
+      end_datetime: "",
       location: "",
       notes: "",
     },
@@ -104,16 +102,15 @@ export default function ScheduleFormPage() {
       reset({
         schedule_type: s.schedule_type,
         title: s.title,
+        customer_name: s.customer_name || "",
+        contact_phone: s.contact_phone || "",
         start_datetime: s.start_datetime
           ? s.start_datetime.slice(0, 16)
           : "",
-        end_datetime: s.end_datetime ? s.end_datetime.slice(0, 16) : "",
-        expected_return_date: s.expected_return_date
-          ? s.expected_return_date.slice(0, 16)
+        show_datetime: s.show_datetime
+          ? s.show_datetime.slice(0, 16)
           : "",
-        contact_name: s.contact_name || "",
-        contact_phone: s.contact_phone || "",
-        contact_email: s.contact_email || "",
+        end_datetime: s.end_datetime ? s.end_datetime.slice(0, 16) : "",
         location: s.location || "",
         notes: s.notes || "",
       });
@@ -125,12 +122,11 @@ export default function ScheduleFormPage() {
     const payload = {
       schedule_type: values.schedule_type,
       title: values.title,
-      start_datetime: values.start_datetime,
-      end_datetime: values.end_datetime,
-      expected_return_date: values.expected_return_date || undefined,
-      contact_name: values.contact_name || undefined,
+      customer_name: values.customer_name.trim(),
       contact_phone: values.contact_phone || undefined,
-      contact_email: values.contact_email || undefined,
+      start_datetime: values.start_datetime,
+      show_datetime: values.show_datetime || undefined,
+      end_datetime: values.end_datetime,
       location: values.location || undefined,
       notes: values.notes || undefined,
     };
@@ -257,8 +253,43 @@ export default function ScheduleFormPage() {
             )}
           </div>
 
-          {/* Start + End Date/Time */}
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="customer_name">
+                Customer Name <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="customer_name"
+                placeholder="e.g. John Doe"
+                {...register("customer_name")}
+              />
+              {errors.customer_name && (
+                <p className="text-xs text-destructive">
+                  {errors.customer_name.message}
+                </p>
+              )}
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="contact_phone">Contact Phone</Label>
+              <Input
+                id="contact_phone"
+                placeholder="e.g. +1 555-0100"
+                {...register("contact_phone")}
+              />
+              {errors.contact_phone && (
+                <p className="text-xs text-destructive">
+                  {errors.contact_phone.message}
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Time Fields */}
+          <div
+            className={`grid grid-cols-1 gap-4 ${
+              scheduleType === "event" ? "md:grid-cols-3" : "md:grid-cols-2"
+            }`}
+          >
             <div className="space-y-1.5">
               <Label htmlFor="start_datetime">
                 Start Date/Time <span className="text-destructive">*</span>
@@ -274,9 +305,29 @@ export default function ScheduleFormPage() {
                 </p>
               )}
             </div>
+
+            {scheduleType === "event" && (
+              <div className="space-y-1.5">
+                <Label htmlFor="show_datetime">Show Date/Time</Label>
+                <Input
+                  id="show_datetime"
+                  type="datetime-local"
+                  {...register("show_datetime")}
+                />
+                {errors.show_datetime && (
+                  <p className="text-xs text-destructive">
+                    {errors.show_datetime.message}
+                  </p>
+                )}
+              </div>
+            )}
+
             <div className="space-y-1.5">
               <Label htmlFor="end_datetime">
-                End Date/Time <span className="text-destructive">*</span>
+                {scheduleType === "external_repair"
+                  ? "Expected Return Date"
+                  : "End Date/Time"}{" "}
+                <span className="text-destructive">*</span>
               </Label>
               <Input
                 id="end_datetime"
@@ -305,151 +356,6 @@ export default function ScheduleFormPage() {
               </p>
             )}
           </div>
-
-          {/* ── Type-specific fields ─────────────────────────────── */}
-
-          {/* Event-specific fields */}
-          {scheduleType === "event" && (
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label htmlFor="contact_name">Contact Name</Label>
-                <Input
-                  id="contact_name"
-                  placeholder="e.g. John Doe"
-                  {...register("contact_name")}
-                />
-                {errors.contact_name && (
-                  <p className="text-xs text-destructive">
-                    {errors.contact_name.message}
-                  </p>
-                )}
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="contact_phone">Contact Phone</Label>
-                <Input
-                  id="contact_phone"
-                  placeholder="e.g. +1 555-0100"
-                  {...register("contact_phone")}
-                />
-                {errors.contact_phone && (
-                  <p className="text-xs text-destructive">
-                    {errors.contact_phone.message}
-                  </p>
-                )}
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="contact_email">Contact Email</Label>
-                <Input
-                  id="contact_email"
-                  type="email"
-                  placeholder="e.g. john@example.com"
-                  {...register("contact_email")}
-                />
-                {errors.contact_email && (
-                  <p className="text-xs text-destructive">
-                    {errors.contact_email.message}
-                  </p>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* External Repair fields */}
-          {scheduleType === "external_repair" && (
-            <>
-              <div className="space-y-1.5">
-                <Label htmlFor="expected_return_date">
-                  Expected Return Date
-                </Label>
-                <Input
-                  id="expected_return_date"
-                  type="datetime-local"
-                  {...register("expected_return_date")}
-                />
-                {errors.expected_return_date && (
-                  <p className="text-xs text-destructive">
-                    {errors.expected_return_date.message}
-                  </p>
-                )}
-              </div>
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label htmlFor="contact_name">
-                    Contact Name (repair shop)
-                  </Label>
-                  <Input
-                    id="contact_name"
-                    placeholder="e.g. ABC Repair Shop"
-                    {...register("contact_name")}
-                  />
-                  {errors.contact_name && (
-                    <p className="text-xs text-destructive">
-                      {errors.contact_name.message}
-                    </p>
-                  )}
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="contact_phone">Contact Phone</Label>
-                  <Input
-                    id="contact_phone"
-                    placeholder="e.g. +1 555-0100"
-                    {...register("contact_phone")}
-                  />
-                  {errors.contact_phone && (
-                    <p className="text-xs text-destructive">
-                      {errors.contact_phone.message}
-                    </p>
-                  )}
-                </div>
-              </div>
-            </>
-          )}
-
-          {/* Rental Out fields */}
-          {scheduleType === "rental_out" && (
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label htmlFor="contact_name">Contact Name (client)</Label>
-                <Input
-                  id="contact_name"
-                  placeholder="e.g. Jane Smith"
-                  {...register("contact_name")}
-                />
-                {errors.contact_name && (
-                  <p className="text-xs text-destructive">
-                    {errors.contact_name.message}
-                  </p>
-                )}
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="contact_phone">Contact Phone</Label>
-                <Input
-                  id="contact_phone"
-                  placeholder="e.g. +1 555-0100"
-                  {...register("contact_phone")}
-                />
-                {errors.contact_phone && (
-                  <p className="text-xs text-destructive">
-                    {errors.contact_phone.message}
-                  </p>
-                )}
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="contact_email">Contact Email</Label>
-                <Input
-                  id="contact_email"
-                  type="email"
-                  placeholder="e.g. client@example.com"
-                  {...register("contact_email")}
-                />
-                {errors.contact_email && (
-                  <p className="text-xs text-destructive">
-                    {errors.contact_email.message}
-                  </p>
-                )}
-              </div>
-            </div>
-          )}
 
           {/* Notes (full-width) */}
           <div className="space-y-1.5">

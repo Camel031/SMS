@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
+import { isAxiosError } from "axios";
 import {
   ArrowLeft,
   Edit,
@@ -14,6 +15,9 @@ import {
   Package,
   Clock,
   ListChecks,
+  User,
+  MapPin,
+  CalendarClock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -87,6 +91,16 @@ function relativeTime(dateStr: string): string {
   return formatDate(dateStr);
 }
 
+function getApiErrorMessage(error: unknown, fallback: string): string {
+  if (isAxiosError(error)) {
+    const detail = error.response?.data?.detail;
+    if (typeof detail === "string" && detail.trim()) {
+      return detail;
+    }
+  }
+  return fallback;
+}
+
 // ─── Main Component ──────────────────────────────────────────────────
 
 export default function ScheduleDetailPage() {
@@ -158,14 +172,16 @@ export default function ScheduleDetailPage() {
   const handleConfirm = () => {
     confirmMutation.mutate(undefined, {
       onSuccess: () => toast.success("Schedule confirmed"),
-      onError: () => toast.error("Failed to confirm schedule"),
+      onError: (error) =>
+        toast.error(getApiErrorMessage(error, "Failed to confirm schedule")),
     });
   };
 
   const handleComplete = () => {
     completeMutation.mutate(undefined, {
       onSuccess: () => toast.success("Schedule completed"),
-      onError: () => toast.error("Failed to complete schedule"),
+      onError: (error) =>
+        toast.error(getApiErrorMessage(error, "Failed to complete schedule")),
     });
   };
 
@@ -174,7 +190,8 @@ export default function ScheduleDetailPage() {
       { force, reason: force ? "Force cancelled" : undefined },
       {
         onSuccess: () => toast.success("Schedule cancelled"),
-        onError: () => toast.error("Failed to cancel schedule"),
+        onError: (error) =>
+          toast.error(getApiErrorMessage(error, "Failed to cancel schedule")),
       },
     );
   };
@@ -182,7 +199,8 @@ export default function ScheduleDetailPage() {
   const handleReopen = () => {
     reopenMutation.mutate(undefined, {
       onSuccess: () => toast.success("Schedule reopened"),
-      onError: () => toast.error("Failed to reopen schedule"),
+      onError: (error) =>
+        toast.error(getApiErrorMessage(error, "Failed to reopen schedule")),
     });
   };
 
@@ -331,7 +349,11 @@ export default function ScheduleDetailPage() {
       </div>
 
       {/* Info Cards Row */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div
+        className={`grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 ${
+          s.schedule_type === "event" ? "xl:grid-cols-7" : "xl:grid-cols-6"
+        }`}
+      >
         <div className="rounded-md border border-border bg-card p-3">
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <Package className="h-3 w-3" />
@@ -356,6 +378,24 @@ export default function ScheduleDetailPage() {
         </div>
         <div className="rounded-md border border-border bg-card p-3">
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <User className="h-3 w-3" />
+            Customer Name
+          </div>
+          <div className="mt-1 truncate text-sm font-semibold" title={s.customer_name || "—"}>
+            {s.customer_name || "—"}
+          </div>
+        </div>
+        <div className="rounded-md border border-border bg-card p-3">
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <MapPin className="h-3 w-3" />
+            Location
+          </div>
+          <div className="mt-1 truncate text-sm font-semibold" title={s.location || "—"}>
+            {s.location || "—"}
+          </div>
+        </div>
+        <div className="rounded-md border border-border bg-card p-3">
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <Calendar className="h-3 w-3" />
             Date Range
           </div>
@@ -363,6 +403,17 @@ export default function ScheduleDetailPage() {
             {formatDate(s.start_datetime)} &mdash; {formatDate(s.end_datetime)}
           </div>
         </div>
+        {s.schedule_type === "event" && (
+          <div className="rounded-md border border-border bg-card p-3">
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <CalendarClock className="h-3 w-3" />
+              Show Date
+            </div>
+            <div className="mt-1 text-sm font-semibold">
+              {formatDate(s.show_datetime)}
+            </div>
+          </div>
+        )}
         <div className="rounded-md border border-border bg-card p-3">
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <Package className="h-3 w-3" />
@@ -525,16 +576,22 @@ export default function ScheduleDetailPage() {
         {/* ── Details Tab ────────────────────────────────────────────── */}
         <TabsContent value="details">
           <div className="rounded-md border border-border p-4 space-y-3">
-            <DetailRow label="Contact Name" value={s.contact_name || "—"} />
+            <DetailRow label="Customer Name" value={s.customer_name || "—"} />
             <DetailRow label="Contact Phone" value={s.contact_phone || "—"} />
-            <DetailRow label="Contact Email" value={s.contact_email || "—"} />
             <DetailRow label="Location" value={s.location || "—"} />
             <DetailRow label="Notes" value={s.notes || "—"} />
+
+            {s.schedule_type === "event" && (
+              <DetailRow
+                label="Show Date/Time"
+                value={formatDateTime(s.show_datetime)}
+              />
+            )}
 
             {s.schedule_type === "external_repair" && (
               <DetailRow
                 label="Expected Return"
-                value={formatDate(s.expected_return_date)}
+                value={formatDateTime(s.end_datetime)}
               />
             )}
 

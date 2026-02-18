@@ -22,12 +22,11 @@ class Schedule(TimestampMixin, UUIDMixin):
         max_length=20, choices=Status.choices, default=Status.DRAFT
     )
     title = models.CharField(max_length=255)
-    contact_name = models.CharField(max_length=255, blank=True)
+    customer_name = models.CharField(max_length=255)
     contact_phone = models.CharField(max_length=20, blank=True)
-    contact_email = models.EmailField(blank=True)
     start_datetime = models.DateTimeField()
+    show_datetime = models.DateTimeField(null=True, blank=True)
     end_datetime = models.DateTimeField()
-    expected_return_date = models.DateTimeField(null=True, blank=True)
     location = models.CharField(max_length=500, blank=True)
     notes = models.TextField(blank=True)
     created_by = models.ForeignKey(

@@ -16,6 +16,7 @@ class InvalidScheduleTransitionError(Exception):
     def __init__(self, from_status: str, to_status: str, detail: str = ""):
         self.from_status = from_status
         self.to_status = to_status
+        self.detail = detail
         msg = f"Invalid schedule transition: {from_status} → {to_status}"
         if detail:
             msg += f" ({detail})"
@@ -37,10 +38,10 @@ class ScheduleStatusService:
         """DRAFT → CONFIRMED. Validates equipment and contact info."""
         cls._validate_transition(schedule, "confirmed")
 
-        if not schedule.contact_name and schedule.schedule_type == Schedule.ScheduleType.EVENT:
+        if not schedule.customer_name:
             raise InvalidScheduleTransitionError(
                 schedule.status, "confirmed",
-                "Contact name is required for confirmed events",
+                "Customer name is required to confirm schedules",
             )
 
         if schedule.start_datetime >= schedule.end_datetime:

@@ -20,7 +20,7 @@ class ScheduleAdmin(admin.ModelAdmin):
         "has_conflicts",
     )
     list_filter = ("schedule_type", "status", "has_conflicts")
-    search_fields = ("title", "contact_name", "location")
+    search_fields = ("title", "customer_name", "location")
     readonly_fields = (
         "uuid",
         "confirmed_at",

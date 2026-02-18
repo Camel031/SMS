@@ -30,7 +30,7 @@ from .services import ScheduleStatusService, AvailabilityService, InvalidSchedul
 class ScheduleListCreateView(generics.ListCreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
     filterset_class = ScheduleFilter
-    search_fields = ["title", "location", "contact_name"]
+    search_fields = ["title", "location", "customer_name"]
     ordering_fields = ["start_datetime", "title", "status"]
 
     def get_serializer_class(self):
@@ -192,6 +192,14 @@ class DispatchEventListCreateView(generics.ListCreateAPIView):
             return ScheduleCreateUpdateSerializer
         return ScheduleListSerializer
 
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        if self.request.method == "POST":
+            context["dispatch_parent"] = get_object_or_404(
+                Schedule, uuid=self.kwargs["schedule_uuid"]
+            )
+        return context
+
     def get_queryset(self):
         return Schedule.objects.filter(
             parent__uuid=self.kwargs["schedule_uuid"]
@@ -227,7 +235,10 @@ def schedule_begin_view(request, uuid):
     try:
         schedule = ScheduleStatusService.begin(schedule, request.user, notes=notes)
     except InvalidScheduleTransitionError as e:
-        return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {"detail": e.detail or str(e)},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
     return Response(ScheduleDetailSerializer(schedule).data)
 
 
@@ -242,7 +253,10 @@ def schedule_confirm_view(request, uuid):
     try:
         schedule = ScheduleStatusService.confirm(schedule, request.user, notes=notes)
     except InvalidScheduleTransitionError as e:
-        return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {"detail": e.detail or str(e)},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
     return Response(ScheduleDetailSerializer(schedule).data)
 
 
@@ -255,7 +269,10 @@ def schedule_complete_view(request, uuid):
     try:
         schedule = ScheduleStatusService.complete(schedule, request.user, notes=notes)
     except InvalidScheduleTransitionError as e:
-        return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {"detail": e.detail or str(e)},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
     return Response(ScheduleDetailSerializer(schedule).data)
 
 
@@ -274,7 +291,10 @@ def schedule_cancel_view(request, uuid):
             schedule, request.user, reason=reason, force=force, notes=notes
         )
     except InvalidScheduleTransitionError as e:
-        return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {"detail": e.detail or str(e)},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
     return Response(ScheduleDetailSerializer(schedule).data)
 
 
@@ -287,7 +307,10 @@ def schedule_reopen_view(request, uuid):
     try:
         schedule = ScheduleStatusService.reopen(schedule, request.user, notes=notes)
     except InvalidScheduleTransitionError as e:
-        return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {"detail": e.detail or str(e)},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
     return Response(ScheduleDetailSerializer(schedule).data)
 
 

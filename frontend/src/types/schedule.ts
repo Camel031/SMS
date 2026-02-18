@@ -22,16 +22,15 @@ export interface ScheduleListItem {
   created_by: UserMinimal | null;
   equipment_count: number;
   is_active: boolean;
-  contact_name: string;
+  customer_name: string;
   notes: string;
 }
 
 export interface ScheduleDetail extends ScheduleListItem {
   id: number;
-  contact_name: string;
+  customer_name: string;
   contact_phone: string;
-  contact_email: string;
-  expected_return_date: string | null;
+  show_datetime: string | null;
   notes: string;
   parent: number | null;
   confirmed_at: string | null;
@@ -50,12 +49,11 @@ export interface ScheduleDetail extends ScheduleListItem {
 export interface ScheduleFormData {
   schedule_type: ScheduleType;
   title: string;
-  contact_name?: string;
+  customer_name: string;
   contact_phone?: string;
-  contact_email?: string;
   start_datetime: string;
+  show_datetime?: string;
   end_datetime: string;
-  expected_return_date?: string;
   location?: string;
   notes?: string;
   parent?: string; // parent uuid

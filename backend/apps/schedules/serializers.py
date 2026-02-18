@@ -221,7 +221,7 @@ class ScheduleListSerializer(serializers.ModelSerializer):
             "created_by",
             "equipment_count",
             "is_active",
-            "contact_name",
+            "customer_name",
             "notes",
         ]
         read_only_fields = fields
@@ -249,12 +249,11 @@ class ScheduleDetailSerializer(serializers.ModelSerializer):
             "schedule_type",
             "status",
             "title",
-            "contact_name",
+            "customer_name",
             "contact_phone",
-            "contact_email",
             "start_datetime",
+            "show_datetime",
             "end_datetime",
-            "expected_return_date",
             "location",
             "notes",
             "created_by",
@@ -294,16 +293,18 @@ class ScheduleCreateUpdateSerializer(serializers.ModelSerializer):
         fields = [
             "schedule_type",
             "title",
-            "contact_name",
+            "customer_name",
             "contact_phone",
-            "contact_email",
             "start_datetime",
+            "show_datetime",
             "end_datetime",
-            "expected_return_date",
             "location",
             "notes",
             "parent",
         ]
+        extra_kwargs = {
+            "customer_name": {"required": False, "allow_blank": False},
+        }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -313,6 +314,29 @@ class ScheduleCreateUpdateSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         attrs = super().validate(attrs)
+
+        context_parent = self.context.get("dispatch_parent")
+        parent = attrs.get(
+            "parent",
+            getattr(self.instance, "parent", None) or context_parent,
+        )
+
+        customer_name = attrs.get(
+            "customer_name",
+            getattr(self.instance, "customer_name", ""),
+        )
+        if (
+            (not customer_name or not customer_name.strip())
+            and parent is not None
+            and parent.customer_name
+        ):
+            customer_name = parent.customer_name
+            attrs["customer_name"] = parent.customer_name
+
+        if not customer_name or not customer_name.strip():
+            raise serializers.ValidationError(
+                {"customer_name": "Customer name is required."}
+            )
 
         # Resolve start / end, falling back to existing instance values on update
         start = attrs.get(
@@ -329,11 +353,6 @@ class ScheduleCreateUpdateSerializer(serializers.ModelSerializer):
                 {"end_datetime": "end_datetime must be after start_datetime."}
             )
 
-        parent = attrs.get(
-            "parent",
-            getattr(self.instance, "parent", None),
-        )
-
         if parent is not None:
             # Resolve schedule_type: from attrs on create, from instance on update
             schedule_type = attrs.get(
@@ -341,15 +360,18 @@ class ScheduleCreateUpdateSerializer(serializers.ModelSerializer):
                 getattr(self.instance, "schedule_type", None),
             )
             if schedule_type and parent.schedule_type != schedule_type:
-                raise serializers.ValidationError(
-                    {
-                        "parent": (
-                            "Parent schedule_type must match. "
-                            f"Parent is '{parent.schedule_type}', "
-                            f"but this schedule is '{schedule_type}'."
-                        )
-                    }
-                )
+                if context_parent is not None and self.instance is None:
+                    attrs["schedule_type"] = parent.schedule_type
+                else:
+                    raise serializers.ValidationError(
+                        {
+                            "parent": (
+                                "Parent schedule_type must match. "
+                                f"Parent is '{parent.schedule_type}', "
+                                f"but this schedule is '{schedule_type}'."
+                            )
+                        }
+                    )
 
             # Child events must fall within parent's time range
             if start and start < parent.start_datetime:

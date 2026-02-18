@@ -235,9 +235,9 @@ function RepairCard({
         )}
       </div>
 
-      {item.contact_name && (
+      {item.customer_name && (
         <p className="text-xs text-muted-foreground truncate">
-          Vendor: <span className="text-foreground">{item.contact_name}</span>
+          Customer: <span className="text-foreground">{item.customer_name}</span>
         </p>
       )}
 

@@ -92,7 +92,7 @@ class DashboardSummaryTest(TestCase):
         """Counts schedules by status grouping."""
         now = timezone.now()
         base = {
-            "contact_name": "Test",
+            "customer_name": "Test",
             "start_datetime": now + timedelta(days=1),
             "end_datetime": now + timedelta(days=3),
             "created_by": self.user,
@@ -111,7 +111,7 @@ class DashboardSummaryTest(TestCase):
         now = timezone.now()
         schedule = Schedule.objects.create(
             title="Test", status="confirmed",
-            contact_name="Test",
+            customer_name="Test",
             start_datetime=now + timedelta(days=1),
             end_datetime=now + timedelta(days=3),
             created_by=self.user,
@@ -154,7 +154,7 @@ class DashboardSummaryTest(TestCase):
         """Counts planned transfers."""
         now = timezone.now()
         sched_base = {
-            "contact_name": "Test",
+            "customer_name": "Test",
             "start_datetime": now + timedelta(days=1),
             "end_datetime": now + timedelta(days=3),
             "created_by": self.user,
@@ -237,7 +237,7 @@ class UpcomingSchedulesTest(TestCase):
         return Schedule.objects.create(
             title=title,
             status=sched_status,
-            contact_name="Test",
+            customer_name="Test",
             start_datetime=self.now + timedelta(days=start_offset_days),
             end_datetime=self.now + timedelta(days=end_offset_days),
             created_by=self.user,
@@ -338,7 +338,7 @@ class AttentionItemsTest(TestCase):
 
         s = Schedule.objects.create(
             title="Past Event", status="in_progress",
-            contact_name="Test",
+            customer_name="Test",
             start_datetime=self.now - timedelta(days=5),
             end_datetime=self.now - timedelta(days=1),
             created_by=self.user,
@@ -411,7 +411,7 @@ class AttentionItemsTest(TestCase):
 
         # Create pending confirmation (low severity)
         s = Schedule.objects.create(
-            title="Test", status="confirmed", contact_name="Test",
+            title="Test", status="confirmed", customer_name="Test",
             start_datetime=self.now + timedelta(days=1),
             end_datetime=self.now + timedelta(days=3),
             created_by=self.user,
@@ -521,7 +521,7 @@ class TimelineDataTest(TestCase):
         )
 
         s = Schedule.objects.create(
-            title="Event1", status="confirmed", contact_name="Test",
+            title="Event1", status="confirmed", customer_name="Test",
             start_datetime=self.now + timedelta(days=1),
             end_datetime=self.now + timedelta(days=3),
             created_by=self.user,
@@ -552,7 +552,7 @@ class TimelineDataTest(TestCase):
 
         # Schedule within range
         s_in = Schedule.objects.create(
-            title="InRange", status="confirmed", contact_name="Test",
+            title="InRange", status="confirmed", customer_name="Test",
             start_datetime=self.now + timedelta(days=1),
             end_datetime=self.now + timedelta(days=3),
             created_by=self.user,
@@ -563,7 +563,7 @@ class TimelineDataTest(TestCase):
 
         # Schedule outside range
         s_out = Schedule.objects.create(
-            title="OutOfRange", status="confirmed", contact_name="Test",
+            title="OutOfRange", status="confirmed", customer_name="Test",
             start_datetime=self.now + timedelta(days=30),
             end_datetime=self.now + timedelta(days=32),
             created_by=self.user,
@@ -588,7 +588,7 @@ class TimelineDataTest(TestCase):
             total_quantity=10,
         )
         s = Schedule.objects.create(
-            title="DraftEvent", status="draft", contact_name="Test",
+            title="DraftEvent", status="draft", customer_name="Test",
             start_datetime=self.now + timedelta(days=1),
             end_datetime=self.now + timedelta(days=3),
             created_by=self.user,
@@ -626,7 +626,7 @@ class TimelineDataTest(TestCase):
         )
 
         s = Schedule.objects.create(
-            title="Event", status="confirmed", contact_name="Test",
+            title="Event", status="confirmed", customer_name="Test",
             start_datetime=self.now + timedelta(days=1),
             end_datetime=self.now + timedelta(days=3),
             created_by=self.user,
@@ -661,7 +661,7 @@ class TimelineDataTest(TestCase):
         )
 
         s = Schedule.objects.create(
-            title="Event", status="confirmed", contact_name="Test",
+            title="Event", status="confirmed", customer_name="Test",
             start_datetime=self.now + timedelta(days=1),
             end_datetime=self.now + timedelta(days=3),
             created_by=self.user,
@@ -715,7 +715,7 @@ class TimelineConflictsTest(TestCase):
         )
 
         s1 = Schedule.objects.create(
-            title="Normal", status="confirmed", contact_name="Test",
+            title="Normal", status="confirmed", customer_name="Test",
             start_datetime=self.now + timedelta(days=1),
             end_datetime=self.now + timedelta(days=3),
             created_by=self.user,
@@ -726,7 +726,7 @@ class TimelineConflictsTest(TestCase):
         )
 
         s2 = Schedule.objects.create(
-            title="OverAllocated", status="confirmed", contact_name="Test",
+            title="OverAllocated", status="confirmed", customer_name="Test",
             start_datetime=self.now + timedelta(days=2),
             end_datetime=self.now + timedelta(days=4),
             created_by=self.user,

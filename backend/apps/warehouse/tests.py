@@ -75,7 +75,7 @@ class WarehouseTestBase(TestCase):
             schedule_type=Schedule.ScheduleType.EVENT,
             status=Schedule.Status.CONFIRMED,
             title="Test Event",
-            contact_name="John",
+            customer_name="John",
             start_datetime=now + timedelta(days=1),
             end_datetime=now + timedelta(days=3),
             created_by=self.user,
