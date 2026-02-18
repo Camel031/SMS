@@ -7,6 +7,7 @@ import {
   CalendarRange,
   AlertTriangle,
   ChevronRight,
+  ShieldCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,6 +34,7 @@ import { useSchedules } from "@/hooks/use-schedules";
 import { usePermission } from "@/hooks/use-auth";
 import { api } from "@/lib/api";
 import { getQueryLoadState } from "@/lib/query-load-state";
+import { cn } from "@/lib/utils";
 import {
   getTabIntentProps,
   useTabIntentPrefetch,
@@ -85,6 +87,7 @@ const STATUS_TABS = [
   { value: "cancelled", label: "Cancelled" },
 ] as const;
 type StatusTabValue = (typeof STATUS_TABS)[number]["value"];
+type ConflictFilterValue = "all" | "conflicts" | "no_conflicts";
 
 // ─── Helpers ────────────────────────────────────────────────────────
 
@@ -104,7 +107,8 @@ export default function ScheduleListPage() {
   const [statusTab, setStatusTab] = useState<StatusTabValue>("all");
   const [typeFilter, setTypeFilter] = useState<string>("");
   const [search, setSearch] = useState("");
-  const [conflictsOnly, setConflictsOnly] = useState(false);
+  const [conflictFilter, setConflictFilter] =
+    useState<ConflictFilterValue>("all");
   const [page, setPage] = useState(1);
 
   const perms = usePermission();
@@ -115,10 +119,11 @@ export default function ScheduleListPage() {
       if (nextStatusTab !== "all") next.status = nextStatusTab;
       if (typeFilter) next.type = typeFilter;
       if (search) next.search = search;
-      if (conflictsOnly) next.has_conflicts = "true";
+      if (conflictFilter === "conflicts") next.has_conflicts = "true";
+      if (conflictFilter === "no_conflicts") next.has_conflicts = "false";
       return next;
     },
-    [page, typeFilter, search, conflictsOnly],
+    [page, typeFilter, search, conflictFilter],
   );
 
   const triggerPrefetch = useTabIntentPrefetch<StatusTabValue>((tab) => {
@@ -135,11 +140,41 @@ export default function ScheduleListPage() {
     });
   });
 
+  const buildConflictPrefetchParams = useCallback(
+    (nextConflictFilter: ConflictFilterValue) => {
+      const next: Record<string, string> = { page: "1" };
+      if (statusTab !== "all") next.status = statusTab;
+      if (typeFilter) next.type = typeFilter;
+      if (search) next.search = search;
+      if (nextConflictFilter === "conflicts") next.has_conflicts = "true";
+      if (nextConflictFilter === "no_conflicts") next.has_conflicts = "false";
+      return next;
+    },
+    [search, statusTab, typeFilter],
+  );
+
+  const triggerConflictPrefetch = useTabIntentPrefetch<ConflictFilterValue>(
+    (nextConflictFilter) => {
+      const prefetchParams = buildConflictPrefetchParams(nextConflictFilter);
+      return queryClient.prefetchQuery({
+        queryKey: ["schedules", prefetchParams],
+        queryFn: async () => {
+          const { data } = await api.get<PaginatedResponse<ScheduleListItem>>(
+            "/schedules/",
+            { params: prefetchParams },
+          );
+          return data;
+        },
+      });
+    },
+  );
+
   const prefetchTypeOptions = useCallback(() => {
     const baseParams: Record<string, string> = { page: "1" };
     if (statusTab !== "all") baseParams.status = statusTab;
     if (search) baseParams.search = search;
-    if (conflictsOnly) baseParams.has_conflicts = "true";
+    if (conflictFilter === "conflicts") baseParams.has_conflicts = "true";
+    if (conflictFilter === "no_conflicts") baseParams.has_conflicts = "false";
 
     const typeValues = Object.keys(TYPE_CONFIG) as ScheduleType[];
     void Promise.all(
@@ -157,7 +192,7 @@ export default function ScheduleListPage() {
         });
       }),
     );
-  }, [conflictsOnly, queryClient, search, statusTab]);
+  }, [conflictFilter, queryClient, search, statusTab]);
 
   // Build query params
   const params = buildParams(statusTab);
@@ -242,19 +277,61 @@ export default function ScheduleListPage() {
                 ))}
               </SelectContent>
             </Select>
-            <label className="flex items-center gap-1.5 text-sm text-muted-foreground cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={conflictsOnly}
-                onChange={(e) => {
-                  setConflictsOnly(e.target.checked);
+            <div className="flex h-8 items-center rounded-md border border-border bg-card/70 p-0.5">
+              <button
+                type="button"
+                aria-pressed={conflictFilter === "all"}
+                {...getTabIntentProps("all", triggerConflictPrefetch)}
+                className={cn(
+                  "inline-flex h-full items-center rounded px-2 text-xs font-medium transition-colors",
+                  conflictFilter === "all"
+                    ? "bg-accent text-foreground"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+                onClick={() => {
+                  setConflictFilter("all");
                   setPage(1);
                 }}
-                className="h-3.5 w-3.5 rounded border-border accent-primary"
-              />
-              <AlertTriangle className="h-3 w-3" />
-              Conflicts
-            </label>
+              >
+                All
+              </button>
+              <button
+                type="button"
+                aria-pressed={conflictFilter === "conflicts"}
+                {...getTabIntentProps("conflicts", triggerConflictPrefetch)}
+                className={cn(
+                  "inline-flex h-full items-center gap-1 rounded px-2 text-xs font-medium transition-colors",
+                  conflictFilter === "conflicts"
+                    ? "bg-destructive/15 text-destructive"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+                onClick={() => {
+                  setConflictFilter("conflicts");
+                  setPage(1);
+                }}
+              >
+                <AlertTriangle className="h-3 w-3" />
+                Conflicts
+              </button>
+              <button
+                type="button"
+                aria-pressed={conflictFilter === "no_conflicts"}
+                {...getTabIntentProps("no_conflicts", triggerConflictPrefetch)}
+                className={cn(
+                  "inline-flex h-full items-center gap-1 rounded px-2 text-xs font-medium transition-colors",
+                  conflictFilter === "no_conflicts"
+                    ? "bg-emerald-500/15 text-emerald-400"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+                onClick={() => {
+                  setConflictFilter("no_conflicts");
+                  setPage(1);
+                }}
+              >
+                <ShieldCheck className="h-3 w-3" />
+                No Conflicts
+              </button>
+            </div>
           </div>
         </div>
 
